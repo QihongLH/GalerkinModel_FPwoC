@@ -1,2 +1,2 @@
-# GalerkinModel_FPwoC
+# GalerkinModel
 Galerkin model for Fluidic Pinball without control
