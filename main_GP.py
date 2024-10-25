@@ -11,6 +11,7 @@ import numpy.matlib
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 from scipy.interpolate import CubicSpline
+from scipy.sparse import csgraph
 
 # from sklearn.metrics import mean_squared_error
 from matplotlib import animation
@@ -28,6 +29,7 @@ from multiprocessing import Pool
 from pyinstrument import Profiler
 # from memory_profiler import profile
 import memory_profiler
+
 from scipy.integrate import solve_ivp
 from scipy.integrate import solve_bvp
 
@@ -55,7 +57,7 @@ def main():
     #%% CONFIGURATION
     FlagRunCode = 1                                                             # Run code
     FlagPlots = 1                                                               # Plot results
-    FlagVideos = 1                                                              # Do videos
+    FlagVideos = 0                                                              # Do videos
     FlagData = 0
             
     FlagParal = 0                                                               # Paralelise integration
@@ -74,22 +76,28 @@ def main():
         # 1 Solve My system of equations
         # 2 ODE system built with Einsum
         
-    plt.rcParams['font.family'] = 'Times New Roman'
+    plt.rcParams['font.family'] = 'Latex'
     plt.rcParams['font.size'] = 11
-    
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "Times New Roman" # Helvetica 
+    })
+        
     #%% Parameter settings
     param = {}
     param['r'] = 10                                                         # rank     
-    # Original: choose r = 11
+
     modes = [1,2,3]                                                             # Modes to be represented
 
-    param['dsnaps'] = 10
+    param['dsnaps'] = 60
     
     param['E'] = 0.8                                                        # Energy to cut number of modes
 
     param['dt'] = 1/10                                                      # Non-dimensional time spacing
     param['nu'] = 1/130                                                     # Non-dimensional kinematic viscosity, equivalent to 1/Re
     
+    # Uinf = 1 # m/s 
+
     Res = 25 #pix/D
 
     grid = {}                                                               # Initialise empty dictionary
@@ -113,7 +121,7 @@ def main():
     # Integrator configuration - Initialize integrator keywords for solve_ivp to replicate the odeint defaults
     integrator_keywords = {}
     integrator_keywords['rtol'] = 1e-15
-    integrator_keywords['method'] = 'LSODA' #'LSODA'
+    # integrator_keywords['method'] = 'LSODA' #'LSODA'
     integrator_keywords['atol'] = 1e-10
         
     #%% Folder paths (FP) definition
@@ -327,7 +335,7 @@ def main():
                 
             end_time = time.time()
             elapsed_time = end_time - start_time
-            print(f"Time taken for POD of TR train data: {elapsed_time} seconds")  
+            print(f"Time taken for POD of NTR train data: {elapsed_time} seconds")  
             print()
             
             file_path = os.path.join(FolderName, 'POD.pkl')
@@ -361,7 +369,7 @@ def main():
                 POD = pickle.load(fp)
                 print('POD dictionary loaded')
                 
-            TR_a = np.load(f'{FolderName}/TR_a.npy')
+            # TR_a = np.load(f'{FolderName}/TR_a.npy')
             
             file_path = os.path.join(FolderName, f'GPrecon.pkl')
             with open(file_path, 'rb') as fp:
@@ -380,7 +388,7 @@ def main():
         
         # Plot on the second subplot
         ax2.semilogx(energy)
-        ax2.set_title('Cumulative Energy')
+        ax2.set_title('Cumulative Energy $\sum_{i=1}^{n}\sigma_i^2/\sum_{i = 1}^{Nr}\sigma_i^2$')
         ax2.grid()
         
         plt.tight_layout()  # Adjust the layout for better spacing
@@ -513,82 +521,26 @@ def main():
                     
                     
                     '''
-                    tvec_f = tvec_f[0:int(nt/2)-1]
-                    tvec_b = tvec_b[0:int(nt/2)-1]
-
-                    # result_f = odeint(gp.myODESystem, a_IC_f, tvec_f, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc']), method = 'lsoda')
-                    # result_b = odeint(gp.myODESystem, tvec_b, a_IC_b, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure))
-
-                    t_span = (tvec_f[0],tvec_f[-1])
-                    result_f = solve_ivp(gp.myODESystem, t_span , a_IC_f ,t_eval=tvec_f, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
-                    t_span = (tvec_b[0],tvec_b[-1])
-                    result_b = solve_ivp(gp.myODESystem, t_span , a_IC_b ,t_eval=tvec_b, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
-    
-                    
-                    result_b = result_b[::-1]
-                    
-
-                    # Take the last three points of vec1 and the first three points of vec2
-                    boundary_points_vec1 = result_f[-3:]
-                    boundary_points_vec2 = result_b[:3]
-                    
-                    # Interpolate points between the boundary points using cubic spline
-                    t = np.arange(tvec_f[-1], tvec_b[-1], param['dt'])  # Parameter values for interpolation
-                    interp_fun = CubicSpline([tvec_f[-3], tvec_b[3]], [boundary_points_vec1[-1], boundary_points_vec2[0]])
-                    transition_points = interp_fun(t)
-                    # transition_points = CubicSpline([tvec_f[-1], tvec_b[-1]], [boundary_points_vec1[-1], boundary_points_vec2[0]])(t)[1:-1]  # Exclude the first and last points
-                    
-                    # Concatenate vec1, transition points, and vec2
-                    result = np.concatenate((result_f, transition_points[1:3,:], result_b))
-                    a.append(result)
-
-                    var = np.var(GPrecon['a'],axis=0)
-                    
-                    def compute_variance(result_f, ref_var):
-                        # var_f = np.zeros([result_f.shape[1],result_f.shape[0]])
-                        
-                        # for j in range(1, result_f.shape[0]):  # Adjusting the range to include the last column
-                        #     var_f[:,j] = np.var(result_f[:j, :],axis=0)
-                            
-                        #     # if var_f >= ref_var:
-                        #     #     return var_f, j  # Returning the variance and the index where it exceeds the reference variance
-                        
-                        var_f = np.zeros(result_f.shape[0])
-                        
-                        for j in range(1, result_f.shape[0]):  # Adjusting the range to include the last column
-                            var_f[j] = np.var(result_f[:j, :])
-                            
-                            # if var_f >= ref_var:
-                            #     return var_f, j  # Returning the variance and the index where it exceeds the reference variance
-                            
-                        
-                        # If the loop completes without finding a variance exceeding the reference variance
-                        return var_f
-                                        
-                    variance, index = compute_variance(result_f, var)
-                    
-                    '''
-
+                    # Andrea's correction
                     tvec_f = tvec_f[0:int(nt/2)+1]
                     tvec_b = tvec_b[0:int(nt/2)+1]
-                    
+
                     t_span_f = (tvec_f[0],tvec_f[-1])
                     result_f = solve_ivp(gp.myODESystem, t_span_f , a_IC_f ,t_eval=tvec_f, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
                     t_span_b = (tvec_b[0],tvec_b[-1])
                     result_b = solve_ivp(gp.myODESystem, t_span_b , a_IC_b ,t_eval=tvec_b, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
-    
                     result_b = result_b[::-1]
                                     
-                    weight = np.linspace(1,0,int(nt/2)+1)**3*0.6
+                    weight = np.linspace(1,0,int(nt/2)+2)**2*0.5
     
-                    # Hafl 1
-                    y0 = 0.5*result_f[-1,:] + 0.5*result_b[0,:]
+                    # Correct integration
+                    y0 = weight[0]*result_f[-1,:] + weight[0]*result_b[0,:]
                     
                     solution_1 = solve_ivp(gp.myODESystem, t_span_f[::-1], y0, t_eval=[tvec_f[-1]], args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
                     solution_2 = solve_ivp(gp.myODESystem, t_span_b[::-1], y0, t_eval=[tvec_b[-1]], args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
-
-                    y0_1 = weight[0]*solution_1 + (1-weight[0])*result_f[-2,:]  # Initial condition at the current time step
-                    y0_2 = weight[0]*solution_2 +(1-weight[0])*result_b[1,:]  # Initial condition at the current time step
+    
+                    y0_1 = weight[1]*solution_1 + (1-weight[1])*result_f[-2,:]  # Initial condition at the current time step
+                    y0_2 = weight[1]*solution_2 +(1-weight[1])*result_b[1,:]  # Initial condition at the current time step
                         
                     solution_f = np.zeros([result_f.shape[0]-1,result_f.shape[1]])
                     solution_b = np.zeros([result_b.shape[0]-1,result_b.shape[1]])
@@ -596,21 +548,20 @@ def main():
                     solution_b[0,:] = solution_2
                     
                     for j in range(2,int(nt/2)+1):
-
                         
                         t_eval_1 = [tvec_f[-j]]  # Time point at which to evaluate the solution
                         t_eval_2 = [tvec_b[-j]]  # Time point at which to evaluate the solution
-
+    
                         # Integrate from the current time step to the next time point
                         solution_1 = solve_ivp(gp.myODESystem, t_span_f[::-1], y0_1.flatten(), t_eval=t_eval_1, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
                         solution_2 = solve_ivp(gp.myODESystem, t_span_b[::-1], y0_2.flatten(), t_eval=t_eval_2, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
-
-                        y0_1 = weight[j]*solution_1 + (1-weight[j])*result_f[-j]  # Initial condition at the current time step
-                        y0_2 = weight[j]*solution_2 + (1-weight[j])*result_b[j]  # Initial condition at the current time step
+    
+                        y0_1 = weight[j+1]*solution_1 + (1-weight[j+1])*result_f[-j]  # Initial condition at the current time step
+                        y0_2 = weight[j+1]*solution_2 + (1-weight[j+1])*result_b[j]  # Initial condition at the current time step
                                                 
                         solution_f[j-1,:] =  y0_1
                         solution_b[j-1,:] =  y0_2
-
+    
                     solution_f = solution_f[::-1]
                     solution_f[0,:] = a_IC_f
                     solution_b[-1,:] = a_IC_b
@@ -618,8 +569,157 @@ def main():
                     result = np.concatenate((solution_f, [y0], solution_b))
                     
                     a.append(result[0:-1,:])
-  
+                    '''
+                    
+                    # tvec_f = tvec_f[0:int(nt/2)+1]
+                    # tvec_b = tvec_b[0:int(nt/2)+1]
+                    if param['dsnaps'] > 20:
+                        t_span_f = (tvec_f[0],tvec_f[-1])
+                        result_f = solve_ivp(gp.myODESystem, t_span_f , a_IC_f ,t_eval=tvec_f, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
+                        t_span_b = (tvec_b[0],tvec_b[-1])
+                        result_b = solve_ivp(gp.myODESystem, t_span_b , a_IC_b ,t_eval=tvec_b, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
+        
+                        result_b = result_b[::-1]
+                        
+                        # y0 = 0.5*result_f[int(nt/2)+1,:] + 0.5*result_b[int(nt/2)+1,:]
+                        y0 = 0.5*result_f[int(nt/2)+1,:] + 0.5*result_b[int(nt/2)+1,:]
+    
+    
+                        # weight = np.linspace(1,0,int(nt/2)+1-10)**3*0.5
+                        weightF = np.linspace(1,0,int(nt/2)+1-10)**3*0.5 + 0.5
+                        weightB = weightF[::-1]
+    
+                        result_midF = result_f[10:int(nt/2)+1]*weightF.reshape([-1,1]) + result_b[10:int(nt/2)+1]*(1-weightF.reshape([-1,1]))
+                        result_midB = result_f[int(nt/2)+1:-10]*(1-weightB[1:].reshape([-1,1])) + result_b[int(nt/2)+1:-10]*(weightB[1:].reshape([-1,1]))
+    
+                        result = np.concatenate((result_f[0:10], result_midF, result_midB,result_b[nt-10:]))
+                       
+                        a.append(result[0:-1,:])
+                        
+                    else:
+                        # For small subsampling factors do weighted average between forward and backward integration
+                        
+                        """
+                        # Weighted average
+                        t_span_f = (tvec_f[0],tvec_f[-1])
+                        result_f = solve_ivp(gp.myODESystem, t_span_f , a_IC_f ,t_eval=tvec_f, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
+                        t_span_b = (tvec_b[0],tvec_b[-1])
+                        result_b = solve_ivp(gp.myODESystem, t_span_b , a_IC_b ,t_eval=tvec_b, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
+        
+                        result_b = result_b[::-1]
+                        
+                        # y0 = 0.5*result_f[int(nt/2)+1,:] + 0.5*result_b[int(nt/2)+1,:]
+    
+    
+                        # weight = np.linspace(1,0,int(nt/2)+1-10)**3*0.5
+                        # weightF = np.linspace(1,0,int(nt/2)+1)**3
+                        weightF = np.linspace(1,0,nt)**2
+                        weightB = weightF[::-1]
+    
+                        result = result_f*weightF.reshape([-1,1]) + result_b*(weightB.reshape([-1,1]))
+                        # tvec_f = tvec_f[0:int(nt/2)+1]
+                        # tvec_b = tvec_b[0:int(nt/2)+1]
+                   
+                        # t_span_f = (tvec_f[0],tvec_f[-1])
+                        # result_f = solve_ivp(gp.myODESystem, t_span_f , a_IC_f ,t_eval=tvec_f, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
+                        # t_span_b = (tvec_b[0],tvec_b[-1])
+                        # result_b = solve_ivp(gp.myODESystem, t_span_b , a_IC_b ,t_eval=tvec_b, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
+                        # result_b = result_b[::-1]
+                        
+                        # result = np.concatenate((result_f, result_b[1:]))
+                        
+                                           
+                        # Interp at midpoints
+                        # tvec_f = tvec_f[0:int(nt/2)-1]
+                        # tvec_b = tvec_b[0:int(nt/2)-1]
+                        
+                        tvec_f = np.linspace(TR_Test['t'][NTR_Test['index'][i]],TR_Test['t'][NTR_Test['index'][i+1]],nt)
+                        tvec_b = tvec_f[::-1]
 
+                        tvec_f = tvec_f[0:int((nt-1)/2)-1]
+                        tvec_b = tvec_b[0:int((nt-1)/2)-1]
+                        
+                        # result_f = odeint(gp.myODESystem, a_IC_f, tvec_f, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc']), method = 'lsoda')
+                        # result_b = odeint(gp.myODESystem, tvec_b, a_IC_b, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure))
+                        
+                        t_span = (tvec_f[0],tvec_f[-1])
+                        result_f = solve_ivp(gp.myODESystem, t_span , a_IC_f ,t_eval=tvec_f, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
+                        t_span = (tvec_b[0],tvec_b[-1])
+                        result_b = solve_ivp(gp.myODESystem, t_span , a_IC_b ,t_eval=tvec_b, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
+                        
+                        result_b = result_b[::-1]
+                        
+                        
+                        # Take the last three points of vec1 and the first three points of vec2
+                        boundary_points_vec1 = result_f[-3:]
+                        boundary_points_vec2 = result_b[:3]
+                        
+                        # Interpolate points between the boundary points using cubic spline
+                        t = np.arange(tvec_f[-1], tvec_b[-1], param['dt'])  # Parameter values for interpolation
+                        interp_fun = CubicSpline([tvec_f[-3], tvec_b[3]], [boundary_points_vec1[-1], boundary_points_vec2[0]])
+                        transition_points = interp_fun(t)
+                        # transition_points = CubicSpline([tvec_f[-1], tvec_b[-1]], [boundary_points_vec1[-1], boundary_points_vec2[0]])(t)[1:-1]  # Exclude the first and last points
+                        
+                        # Concatenate vec1, transition points, and vec2
+                        result = np.concatenate((result_f, transition_points[1:3,:], result_b))
+                        """
+                        
+                        t_span_f = (tvec_f[0],tvec_f[-1])
+                        result_f = solve_ivp(gp.myODESystem, t_span_f , a_IC_f ,t_eval=tvec_f, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
+                        t_span_b = (tvec_b[0],tvec_b[-1])
+                        result_b = solve_ivp(gp.myODESystem, t_span_b , a_IC_b ,t_eval=tvec_b, args=(r, GPcoeff['l'], GPcoeff['lp'], GPcoeff['qc'], FlagPressure)).y.T
+        
+                        result_b = result_b[::-1]
+                        
+                        # # y0 = 0.5*result_f[int(nt/2)+1,:] + 0.5*result_b[int(nt/2)+1,:]
+                        # y0 = 0.5*result_f[int(nt/2)+1,:] + 0.5*result_b[int(nt/2)+1,:]
+    
+    
+                        # # weight = np.linspace(1,0,int(nt/2)+1-10)**3*0.5
+                        # weightF = np.linspace(1,0,int(nt/2)+1)**3*0.5 + 0.5
+                        # weightB = weightF[::-1]
+    
+                        # result_midF = result_f[0:int(nt/2)+1]*weightF.reshape([-1,1]) + result_b[0:int(nt/2)+1]*(1-weightF.reshape([-1,1]))
+                        # result_midB = result_f[int(nt/2)+1:]*(1-weightB[1:].reshape([-1,1])) + result_b[int(nt/2)+1:]*(weightB[1:].reshape([-1,1]))
+    
+                        # result = np.concatenate((result_midF, result_midB))
+                        lim = 10
+                        weight = np.linspace(-lim,lim,nt-2)
+                        sig = 1/(1+np.e**(-weight))
+                        
+                        result_mid = result_f[1:-1,:]*(1-sig.reshape([-1,1])) + result_b[1:-1,:]*sig.reshape([-1,1])
+                        
+                        result = np.concatenate((result_f[0,:].reshape([-1,1]).T, result_mid, result_b[-1,:].reshape([-1,1]).T))
+       
+                        
+                        # var = np.var(GPrecon['a'],axis=0)
+                        
+                        # def compute_variance(result_f, ref_var):
+                        #     # var_f = np.zeros([result_f.shape[1],result_f.shape[0]])
+                            
+                        #     # for j in range(1, result_f.shape[0]):  # Adjusting the range to include the last column
+                        #     #     var_f[:,j] = np.var(result_f[:j, :],axis=0)
+                                
+                        #     #     # if var_f >= ref_var:
+                        #     #     #     return var_f, j  # Returning the variance and the index where it exceeds the reference variance
+                            
+                        #     var_f = np.zeros(result_f.shape[0])
+                            
+                        #     for j in range(1, result_f.shape[0]):  # Adjusting the range to include the last column
+                        #         var_f[j] = np.var(result_f[:j, :])
+                                
+                        #         # if var_f >= ref_var:
+                        #         #     return var_f, j  # Returning the variance and the index where it exceeds the reference variance
+                                
+                            
+                        #     # If the loop completes without finding a variance exceeding the reference variance
+                        #     return var_f
+                                            
+                        # variance, index = compute_variance(result_f, var)
+
+
+                        a.append(result[0:-1,:])
+      
                 a.append(a_IC_b)    
                 a_recon = np.vstack(a)
                 
@@ -844,6 +944,106 @@ def main():
         with open(file_path, 'rb') as fp:
             ORI_interp = pickle.load(fp)
             print('ORI_interp dictionary loaded')
+            
+    
+
+    dirMatfiles = f"Matlab plots/data/s{param['dsnaps']}_{int(param['E']*100)}"
+
+    if not os.path.exists(dirMatfiles):
+        os.makedirs(dirMatfiles)
+        
+    
+    sio.savemat(f"{dirMatfiles}/snap1_u.mat", 
+                {'TR': TR_Test['uf'][0:param['Np'],0].reshape([param['m'],param['n']]),
+                 'LOR': LOrecon['Urec'][0:param['Np'],0].reshape([param['m'],param['n']]), 
+                 'GP' : GPrecon['Urec'][0:param['Np'],0].reshape([param['m'],param['n']]),
+                 'Inter': a_interp['Urec'][0:param['Np'],0].reshape([param['m'],param['n']])})
+    sio.savemat(f"{dirMatfiles}/snap1_v.mat", 
+                {'TR': TR_Test['uf'][param['Np']:,0].reshape([param['m'],param['n']]),
+                 'LOR': LOrecon['Urec'][param['Np']:,0].reshape([param['m'],param['n']]), 
+                 'GP' : GPrecon['Urec'][param['Np']:,0].reshape([param['m'],param['n']]),
+                 'Inter': a_interp['Urec'][param['Np']:,0].reshape([param['m'],param['n']])})
+    sio.savemat(f"{dirMatfiles}/snap{int(param['dsnaps']/2)}_u.mat", 
+                {'TR': TR_Test['uf'][0:param['Np'],int(param['dsnaps']/2)-1].reshape([param['m'],param['n']]),
+                 'LOR': LOrecon['Urec'][0:param['Np'],int(param['dsnaps']/2)-1].reshape([param['m'],param['n']]), 
+                 'GP' : GPrecon['Urec'][0:param['Np'],int(param['dsnaps']/2)-1].reshape([param['m'],param['n']]),
+                 'Inter': a_interp['Urec'][0:param['Np'],int(param['dsnaps']/2)-1].reshape([param['m'],param['n']])})
+    sio.savemat(f"{dirMatfiles}/snap{int(param['dsnaps']/2)}_v.mat", 
+                {'TR': TR_Test['uf'][param['Np']:,int(param['dsnaps']/2)-1].reshape([param['m'],param['n']]),
+                 'LOR': LOrecon['Urec'][param['Np']:,int(param['dsnaps']/2)-1].reshape([param['m'],param['n']]), 
+                 'GP' : GPrecon['Urec'][param['Np']:,int(param['dsnaps']/2)-1].reshape([param['m'],param['n']]),
+                 'Inter': a_interp['Urec'][param['Np']:,int(param['dsnaps']/2)-1].reshape([param['m'],param['n']])})
+    # sio.savemat(f"{dirMatfiles}/snap30_u.mat", 
+    #             {'TR': TR_Test['uf'][0:param['Np'],29].reshape([param['m'],param['n']]),
+    #              'LOR': LOrecon['Urec'][0:param['Np'],29].reshape([param['m'],param['n']]), 
+    #              'GP' : GPrecon['Urec'][0:param['Np'],29].reshape([param['m'],param['n']]),
+    #              'Inter': a_interp['Urec'][0:param['Np'],29]})
+    # sio.savemat(f"{dirMatfiles}/snap30_v.mat", 
+    #             {'TR': TR_Test['uf'][param['Np']:,29].reshape([param['m'],param['n']]),
+    #              'LOR': LOrecon['Urec'][param['Np']:,29].reshape([param['m'],param['n']]), 
+    #              'GP' : GPrecon['Urec'][param['Np']:,29].reshape([param['m'],param['n']]),
+    #              'Inter': a_interp['Urec'][param['Np']:,29]})
+    sio.savemat(f"{dirMatfiles}/meanMat.mat", 
+                {'TR_um': TR_Test['um'][0:param['Np']].reshape([param['m'],param['n']]),
+                'TR_vm': TR_Test['um'][param['Np']:].reshape([param['m'],param['n']]),
+                'um':NTR_Train['um'][0:param['Np']].reshape([param['m'],param['n']]),
+                'vm':NTR_Train['um'][param['Np']:].reshape([param['m'],param['n']])})
+    
+    sio.savemat(f"{dirMatfiles}/grid.mat", {'X': grid['X'], 'Y':grid['Y']})
+    # sio.savemat(f'{folder_path}/Matlab plots/data/error.mat', {'ORI_LOR': ORI_LOR['u_rmse'][:,].reshape([param['m'],param['n']]),'LOR_GP': LOR_GP['u_rmse'][:,].reshape([param['m'],param['n']]), 'ORI_GP' : ORI_GP['u_rmse'][:,].reshape([param['m'],param['n']])})
+
+    sio.savemat(f"{dirMatfiles}/error_t.mat", 
+            {'LOR_GP': LOR_GP['V_mse'].reshape([param['m'],param['n']]),
+             'LOR_GP': LOR_GP['V_mse'].reshape([param['m'],param['n']]),
+             'LOR_GP' : LOR_GP['V_mse'].reshape([param['m'],param['n']]),
+             'LOR_interp': LOR_interp['V_mse'].reshape([param['m'],param['n']]),
+             'ORI_interp': ORI_interp['V_mse'].reshape([param['m'],param['n']])})
+    
+    # sio.savemat(f"{dirMatfiles}/POD.mat", POD)
+    
+    sio.savemat(f"{dirMatfiles}/a_mat.mat", 
+            {'TR': TR_Test['a'],
+             'NTR': GPrecon['a'],
+             'GP' : a_recon,
+             'Inter': a_interp['a'],
+             'TR_time':TR_Test['t'],
+             'NTR_time': NTR_Test['t']})
+    
+    um = TR_Test['um'][0:param['m']*param['n']].reshape(param['m'],param['n'], -1)
+    vm = TR_Test['um'][param['m']*param['n']:,].reshape(param['m'],param['n'], -1)
+
+    u_TR = np.sqrt((TR_Test['uf'][0:param['m']*param['n'],0:GPrecon['Urec'].shape[1]].reshape(param['m'],param['n'], -1) + um)**2 + 
+    (TR_Test['uf'][param['m']*param['n']:,0:GPrecon['Urec'].shape[1]].reshape(param['m'],param['n'], -1) + vm)**2)
+    u_LOR = np.sqrt((LOrecon['Urec'][0:param['m']*param['n'],0:GPrecon['Urec'].shape[1]].reshape(param['m'],param['n'], -1) + um)**2 + 
+    (LOrecon['Urec'][param['m']*param['n']:,0:GPrecon['Urec'].shape[1]].reshape(param['m'],param['n'], -1) + vm)**2)
+    u_GP = np.sqrt((GPrecon['Urec'][0:param['m']*param['n'],0:GPrecon['Urec'].shape[1]].reshape(param['m'],param['n'], -1) + um)**2 + 
+    (GPrecon['Urec'][param['m']*param['n']:,0:GPrecon['Urec'].shape[1]].reshape(param['m'],param['n'], -1) + vm)**2)
+    u_inter = np.sqrt((a_interp['Urec'][0:param['m']*param['n'],0:GPrecon['Urec'].shape[1]].reshape(param['m'],param['n'], -1) + um)**2 + 
+    (a_interp['Urec'][param['m']*param['n']:,0:GPrecon['Urec'].shape[1]].reshape(param['m'],param['n'], -1) + vm)**2)
+   
+
+    sio.savemat(f"{dirMatfiles}/u_mat.mat", 
+                {'u_TR': u_TR,
+                 'u_LOR': u_LOR, 
+                 'u_GP': u_GP,
+                 'u_Inter': u_inter})
+    
+    sio.savemat(f"{dirMatfiles}/FOM.mat", 
+            {'LOR_GP': LOR_GP['U_fom'],
+             'ORI_GP': ORI_GP['U_fom'],
+             'ORI_LOR' : ORI_LOR['U_fom'],
+             'LOR_interp': LOR_interp['U_fom'],
+             'ORI_interp': ORI_interp['U_fom']})
+
+    sio.savemat(f"{dirMatfiles}/error.mat", 
+                {'uref': ref['u'],
+                'vref': ref['v'],
+                 'LOR_GP': LOR_GP['V_mse'].reshape([param['m'],param['n']]),
+                 'LOR_GP': LOR_GP['V_mse'].reshape([param['m'],param['n']]),
+                 'LOR_GP' : LOR_GP['V_mse'].reshape([param['m'],param['n']]),
+                 'LOR_interp': LOR_interp['V_mse'].reshape([param['m'],param['n']]),
+                 'ORI_interp': ORI_interp['V_mse'].reshape([param['m'],param['n']])})
+    
     
     #%% Plots
 
@@ -873,176 +1073,175 @@ def main():
         plt.rcParams['font.size'] = 11
 
         Res = (375-179)/30 #pix/
-        Nim = 10
+        # Nim = 10
 
-        f, ((ax1, ax4), (ax2, ax5), (ax3, ax6)) = plt.subplots(3, 2, sharex='col', sharey='row',figsize = (6.7,4))
-        im = ax1.pcolormesh(grid['X'],grid['Y'],TR_Test['uf'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
-        ax1.plot(xCyl1, yCyl1, 'k')
-        ax1.plot(xCyl, yCyl2, 'k')
-        ax1.plot(xCyl, yCyl3, 'k')
-        ax1.fill(xCyl, yCyl2, color='white')
-        ax1.fill(xCyl, yCyl3, color='white')
-        ax1.fill(xCyl1, yCyl1, color='white')
-        plt.axis('tight')
-        plt.axis('equal')
-        ax1.set_aspect('equal', adjustable='box')
-        # ax1.set_yticks([-1, -0.5, 0, 0.5, 1])
-        ax1.title.set_text(f"Snapshot {Nim}")
-        # ax1.text(0.05, 0.85, 'a) PIV', transform=ax1.transAxes, color='black', fontsize=11, fontweight='bold')
-        ax1.text(0.05, 0.8, 'a) Ref', transform=ax1.transAxes, color='black', fontsize=11)
+        # f, ((ax1, ax4), (ax2, ax5), (ax3, ax6)) = plt.subplots(3, 2, sharex='col', sharey='row',figsize = (6.7,4))
+        # im = ax1.pcolormesh(grid['X'],grid['Y'],TR_Test['uf'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
+        # ax1.plot(xCyl1, yCyl1, 'k')
+        # ax1.plot(xCyl, yCyl2, 'k')
+        # ax1.plot(xCyl, yCyl3, 'k')
+        # ax1.fill(xCyl, yCyl2, color='white')
+        # ax1.fill(xCyl, yCyl3, color='white')
+        # ax1.fill(xCyl1, yCyl1, color='white')
+        # plt.axis('tight')
+        # plt.axis('equal')
+        # ax1.set_aspect('equal', adjustable='box')
+        # # ax1.set_yticks([-1, -0.5, 0, 0.5, 1])
+        # ax1.title.set_text(f"Snapshot {Nim}")
+        # # ax1.text(0.05, 0.85, 'a) PIV', transform=ax1.transAxes, color='black', fontsize=11, fontweight='bold')
+        # ax1.text(0.05, 0.8, 'a) Ref', transform=ax1.transAxes, color='black', fontsize=11)
 
-        ax2.pcolormesh(grid['X'],grid['Y'],LOrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
-        ax2.plot(xCyl1, yCyl1, 'k')
-        ax2.plot(xCyl, yCyl2, 'k')
-        ax2.plot(xCyl, yCyl3, 'k')
-        ax2.fill(xCyl, yCyl2, color='white')
-        ax2.fill(xCyl, yCyl3, color='white')
-        ax2.fill(xCyl1, yCyl1, color='white')
-        plt.axis('tight')
-        plt.axis('equal')
-        ax2.set_aspect('equal', adjustable='box')
-        # ax2.set_yticks([-1, -0.5, 0, 0.5, 1])
-        # ax2.title.set_text('b) LOR')
-        ax2.text(0.05, 0.8, 'b) LOR', transform=ax2.transAxes, color='black', fontsize=11)
+        # ax2.pcolormesh(grid['X'],grid['Y'],LOrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
+        # ax2.plot(xCyl1, yCyl1, 'k')
+        # ax2.plot(xCyl, yCyl2, 'k')
+        # ax2.plot(xCyl, yCyl3, 'k')
+        # ax2.fill(xCyl, yCyl2, color='white')
+        # ax2.fill(xCyl, yCyl3, color='white')
+        # ax2.fill(xCyl1, yCyl1, color='white')
+        # plt.axis('tight')
+        # plt.axis('equal')
+        # ax2.set_aspect('equal', adjustable='box')
+        # # ax2.set_yticks([-1, -0.5, 0, 0.5, 1])
+        # # ax2.title.set_text('b) LOR')
+        # ax2.text(0.05, 0.8, 'b) LOR', transform=ax2.transAxes, color='black', fontsize=11)
 
-        ax3.pcolormesh(grid['X'],grid['Y'],GPrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
-        ax3.plot(xCyl1, yCyl1, 'k')
-        ax3.plot(xCyl, yCyl2, 'k')
-        ax3.plot(xCyl, yCyl3, 'k')
-        ax3.fill(xCyl, yCyl2, color='white')
-        ax3.fill(xCyl, yCyl3, color='white')
-        ax3.fill(xCyl1, yCyl1, color='white')
-        plt.axis('tight')
-        plt.axis('equal')
-        ax3.set_aspect('equal', adjustable='box')
-        # ax3.set_yticks([-1, -0.5, 0, 0.5, 1])
-        # ax3.title.set_text('c) GP')
-        ax3.text(0.05, 0.8, 'c) GP', transform=ax3.transAxes, color='black', fontsize=11)
+        # ax3.pcolormesh(grid['X'],grid['Y'],GPrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
+        # ax3.plot(xCyl1, yCyl1, 'k')
+        # ax3.plot(xCyl, yCyl2, 'k')
+        # ax3.plot(xCyl, yCyl3, 'k')
+        # ax3.fill(xCyl, yCyl2, color='white')
+        # ax3.fill(xCyl, yCyl3, color='white')
+        # ax3.fill(xCyl1, yCyl1, color='white')
+        # plt.axis('tight')
+        # plt.axis('equal')
+        # ax3.set_aspect('equal', adjustable='box')
+        # # ax3.set_yticks([-1, -0.5, 0, 0.5, 1])
+        # # ax3.title.set_text('c) GP')
+        # ax3.text(0.05, 0.8, 'c) GP', transform=ax3.transAxes, color='black', fontsize=11)
 
-        Nim = 25
+        # Nim = 25
 
-        ax4.pcolormesh(grid['X'],grid['Y'],TR_Test['uf'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
-        ax4.plot(xCyl1, yCyl1, 'k')
-        ax4.plot(xCyl, yCyl2, 'k')
-        ax4.plot(xCyl, yCyl3, 'k')
-        ax4.fill(xCyl, yCyl2, color='white')
-        ax4.fill(xCyl, yCyl3, color='white')
-        ax4.fill(xCyl1, yCyl1, color='white')
-        plt.axis('tight')
-        plt.axis('equal')
-        ax4.set_aspect('equal', adjustable='box')
-        # ax2.set_yticks([-1, -0.5, 0, 0.5, 1])
-        ax4.title.set_text(f"Snapshot {Nim}")
-        ax4.text(0.05, 0.8, 'a) Ref', transform=ax4.transAxes, color='black', fontsize=11)
+        # ax4.pcolormesh(grid['X'],grid['Y'],TR_Test['uf'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
+        # ax4.plot(xCyl1, yCyl1, 'k')
+        # ax4.plot(xCyl, yCyl2, 'k')
+        # ax4.plot(xCyl, yCyl3, 'k')
+        # ax4.fill(xCyl, yCyl2, color='white')
+        # ax4.fill(xCyl, yCyl3, color='white')
+        # ax4.fill(xCyl1, yCyl1, color='white')
+        # plt.axis('tight')
+        # plt.axis('equal')
+        # ax4.set_aspect('equal', adjustable='box')
+        # # ax2.set_yticks([-1, -0.5, 0, 0.5, 1])
+        # ax4.title.set_text(f"Snapshot {Nim}")
+        # ax4.text(0.05, 0.8, 'a) Ref', transform=ax4.transAxes, color='black', fontsize=11)
 
-        ax5.pcolormesh(grid['X'],grid['Y'],LOrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
-        ax5.plot(xCyl1, yCyl1, 'k')
-        ax5.plot(xCyl, yCyl2, 'k')
-        ax5.plot(xCyl, yCyl3, 'k')
-        ax5.fill(xCyl, yCyl2, color='white')
-        ax5.fill(xCyl, yCyl3, color='white')
-        ax5.fill(xCyl1, yCyl1, color='white')
-        plt.axis('tight')
-        plt.axis('equal')
-        ax5.set_aspect('equal', adjustable='box')
-        # ax2.set_yticks([-1, -0.5, 0, 0.5, 1])
-        # ax2.title.set_text('b) LOR')
-        ax5.text(0.05, 0.8, 'b) LOR', transform=ax5.transAxes, color='black', fontsize=11)
+        # ax5.pcolormesh(grid['X'],grid['Y'],LOrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
+        # ax5.plot(xCyl1, yCyl1, 'k')
+        # ax5.plot(xCyl, yCyl2, 'k')
+        # ax5.plot(xCyl, yCyl3, 'k')
+        # ax5.fill(xCyl, yCyl2, color='white')
+        # ax5.fill(xCyl, yCyl3, color='white')
+        # ax5.fill(xCyl1, yCyl1, color='white')
+        # plt.axis('tight')
+        # plt.axis('equal')
+        # ax5.set_aspect('equal', adjustable='box')
+        # # ax2.set_yticks([-1, -0.5, 0, 0.5, 1])
+        # # ax2.title.set_text('b) LOR')
+        # ax5.text(0.05, 0.8, 'b) LOR', transform=ax5.transAxes, color='black', fontsize=11)
 
-        ax6.pcolormesh(grid['X'],grid['Y'],GPrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
-        ax6.plot(xCyl1, yCyl1, 'k')
-        ax6.plot(xCyl, yCyl2, 'k')
-        ax6.plot(xCyl, yCyl3, 'k')
-        ax6.fill(xCyl, yCyl2, color='white')
-        ax6.fill(xCyl, yCyl3, color='white')
-        ax6.fill(xCyl1, yCyl1, color='white')
-        plt.axis('tight')
-        plt.axis('equal')
-        ax6.set_aspect('equal', adjustable='box')
-        # ax3.set_yticks([-1, -0.5, 0, 0.5, 1])
-        # ax3.title.set_text('c) GP')
-        ax6.text(0.05, 0.8, 'c) GP', transform=ax6.transAxes, color='black', fontsize=11)
+        # ax6.pcolormesh(grid['X'],grid['Y'],GPrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']]),cmap='jet',clim=[-0.4, 0.4])
+        # ax6.plot(xCyl1, yCyl1, 'k')
+        # ax6.plot(xCyl, yCyl2, 'k')
+        # ax6.plot(xCyl, yCyl3, 'k')
+        # ax6.fill(xCyl, yCyl2, color='white')
+        # ax6.fill(xCyl, yCyl3, color='white')
+        # ax6.fill(xCyl1, yCyl1, color='white')
+        # plt.axis('tight')
+        # plt.axis('equal')
+        # ax6.set_aspect('equal', adjustable='box')
+        # # ax3.set_yticks([-1, -0.5, 0, 0.5, 1])
+        # # ax3.title.set_text('c) GP')
+        # ax6.text(0.05, 0.8, 'c) GP', transform=ax6.transAxes, color='black', fontsize=11)
 
-        f.text(0.5, 0.02, '$X / D$', ha='center', fontsize = 11, font = 'Times New Roman')
-        f.text(0.01, 0.5, '$Y / D$', va='center', rotation='vertical', fontsize = 11, font = 'Times New Roman')
-        cbar_ax = f.add_axes([0.93, 0.12, 0.015, 0.8]) # adjust position and size of the colorbar axis
-        cb = f.colorbar(im, cax=cbar_ax)
-        cb.ax.set_title('$U / U_b$', fontsize = 11, font = 'Times New Roman')
-        # cb.ax.tick_params(labelsize=10) # set the font size for the colorbar tick labels
-        f.subplots_adjust(left=0.09, right=0.90, bottom=0.1, top=0.95, wspace=0.1, hspace=0.1)
-        # f.tight_layout()
+        # f.text(0.5, 0.02, '$X / D$', ha='center', fontsize = 11, font = 'Times New Roman')
+        # f.text(0.01, 0.5, '$Y / D$', va='center', rotation='vertical', fontsize = 11, font = 'Times New Roman')
+        # cbar_ax = f.add_axes([0.93, 0.12, 0.015, 0.8]) # adjust position and size of the colorbar axis
+        # cb = f.colorbar(im, cax=cbar_ax)
+        # cb.ax.set_title('$U / U_b$', fontsize = 11, font = 'Times New Roman')
+        # # cb.ax.tick_params(labelsize=10) # set the font size for the colorbar tick labels
+        # f.subplots_adjust(left=0.09, right=0.90, bottom=0.1, top=0.95, wspace=0.1, hspace=0.1)
+        # # f.tight_layout()
 
-        plt.savefig(f"{folder_path}/{sol_path}/Snapshot.png", dpi=300, bbox_inches='tight')
+        # plt.savefig(f"{folder_path}/{sol_path}/Snapshot.png", dpi=300, bbox_inches='tight')
 
             
-        f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharex='col', sharey='row',figsize = (7.4,3))
-        im = ax1.pcolormesh(grid['X'],grid['Y'],ORI_LOR['u_rmse'][:,].reshape([param['m'],param['n']]),cmap='jet',clim=[0,1])
-        ax1.plot(xCyl1, yCyl1, 'k')
-        ax1.plot(xCyl, yCyl2, 'k')
-        ax1.plot(xCyl, yCyl3, 'k')
-        ax1.fill(xCyl, yCyl2, color='white')
-        ax1.fill(xCyl, yCyl3, color='white')
-        ax1.fill(xCyl1, yCyl1, color='white')
-        plt.axis('tight')
-        plt.axis('equal')
-        ax1.set_aspect('equal', adjustable='box')
-        # ax2.set_yticks([-1, -0.5, 0, 0.5, 1])
-        ax1.title.set_text('a) PIV-LOR')
-        # ax1.text(0.05, 0.79, 'PIV-LOR', transform=ax1.transAxes, color='white', fontsize=11, fontweight='bold')
+        # f, (ax1, ax2, ax3) = plt.subplots(1, 3, sharex='col', sharey='row',figsize = (7.4,3))
+        # im = ax1.pcolormesh(grid['X'],grid['Y'],ORI_LOR['u_rmse'][:,].reshape([param['m'],param['n']]),cmap='jet',clim=[0,1])
+        # ax1.plot(xCyl1, yCyl1, 'k')
+        # ax1.plot(xCyl, yCyl2, 'k')
+        # ax1.plot(xCyl, yCyl3, 'k')
+        # ax1.fill(xCyl, yCyl2, color='white')
+        # ax1.fill(xCyl, yCyl3, color='white')
+        # ax1.fill(xCyl1, yCyl1, color='white')
+        # plt.axis('tight')
+        # plt.axis('equal')
+        # ax1.set_aspect('equal', adjustable='box')
+        # # ax2.set_yticks([-1, -0.5, 0, 0.5, 1])
+        # ax1.title.set_text('a) PIV-LOR')
+        # # ax1.text(0.05, 0.79, 'PIV-LOR', transform=ax1.transAxes, color='white', fontsize=11, fontweight='bold')
 
-        ax2.pcolormesh(grid['X'],grid['Y'],LOR_GP['u_rmse'][:,].reshape([param['m'],param['n']]),cmap='jet',clim=[0,1])
-        ax2.plot(xCyl1, yCyl1, 'k')
-        ax2.plot(xCyl, yCyl2, 'k')
-        ax2.plot(xCyl, yCyl3, 'k')
-        ax2.fill(xCyl, yCyl2, color='white')
-        ax2.fill(xCyl, yCyl3, color='white')
-        ax2.fill(xCyl1, yCyl1, color='white')
-        plt.axis('tight')
-        plt.axis('equal')
-        ax2.set_aspect('equal', adjustable='box')
-        # ax2.set_yticks([-1, -0.5, 0, 0.5, 1])
-        ax2.title.set_text('b) LOR-GP')
-        # ax2.text(0.05, 0.79, 'LOR-GP', transform=ax2.transAxes, color='white', fontsize=11, fontweight='bold')
+        # ax2.pcolormesh(grid['X'],grid['Y'],LOR_GP['u_rmse'][:,].reshape([param['m'],param['n']]),cmap='jet',clim=[0,1])
+        # ax2.plot(xCyl1, yCyl1, 'k')
+        # ax2.plot(xCyl, yCyl2, 'k')
+        # ax2.plot(xCyl, yCyl3, 'k')
+        # ax2.fill(xCyl, yCyl2, color='white')
+        # ax2.fill(xCyl, yCyl3, color='white')
+        # ax2.fill(xCyl1, yCyl1, color='white')
+        # plt.axis('tight')
+        # plt.axis('equal')
+        # ax2.set_aspect('equal', adjustable='box')
+        # # ax2.set_yticks([-1, -0.5, 0, 0.5, 1])
+        # ax2.title.set_text('b) LOR-GP')
+        # # ax2.text(0.05, 0.79, 'LOR-GP', transform=ax2.transAxes, color='white', fontsize=11, fontweight='bold')
 
-        ax3.pcolormesh(grid['X'],grid['Y'],ORI_GP['u_rmse'][:,].reshape([param['m'],param['n']]),cmap='jet',clim=[0,1])
-        ax3.plot(xCyl1, yCyl1, 'k')
-        ax3.plot(xCyl, yCyl2, 'k')
-        ax3.plot(xCyl, yCyl3, 'k')
-        ax3.fill(xCyl, yCyl2, color='white')
-        ax3.fill(xCyl, yCyl3, color='white')
-        ax3.fill(xCyl1, yCyl1, color='white')
-        plt.axis('tight')
-        plt.axis('equal')
-        ax3.set_aspect('equal', adjustable='box')
-        # ax3.set_yticks([-1, -0.5, 0, 0.5, 1])
-        ax3.title.set_text('c) PIV-GP')
-        # ax3.text(0.05, 0.79, 'PIV-GP', transform=ax3.transAxes, color='white', fontsize=11, fontweight='bold')
+        # ax3.pcolormesh(grid['X'],grid['Y'],ORI_GP['u_rmse'][:,].reshape([param['m'],param['n']]),cmap='jet',clim=[0,1])
+        # ax3.plot(xCyl1, yCyl1, 'k')
+        # ax3.plot(xCyl, yCyl2, 'k')
+        # ax3.plot(xCyl, yCyl3, 'k')
+        # ax3.fill(xCyl, yCyl2, color='white')
+        # ax3.fill(xCyl, yCyl3, color='white')
+        # ax3.fill(xCyl1, yCyl1, color='white')
+        # plt.axis('tight')
+        # plt.axis('equal')
+        # ax3.set_aspect('equal', adjustable='box')
+        # # ax3.set_yticks([-1, -0.5, 0, 0.5, 1])
+        # ax3.title.set_text('c) PIV-GP')
+        # # ax3.text(0.05, 0.79, 'PIV-GP', transform=ax3.transAxes, color='white', fontsize=11, fontweight='bold')
 
-        f.text(0.5, 0.28, '$X / D$', ha='center', fontsize = 11, font = 'Times New Roman')
-        f.text(0.02, 0.5, '$Y / D$', va='center', rotation='vertical', fontsize = 11, font = 'Times New Roman')
-        cb_ax = f.add_axes([0.07, 0.18, 0.86, 0.03])  # [left, bottom, width, height]
-        cb = f.colorbar(im, cax=cb_ax, orientation='horizontal')
-        cb.ax.set_xlabel('$RMSE_{u^{\prime}}$', fontsize = 11, font = 'Times New Roman')
-        # cb.ax.tick_params(labelsize=10) # set the font size for the colorbar tick labels
-        f.subplots_adjust(left=0.09, right=0.90, bottom=0.1, top=0.95, wspace=0.1, hspace=0.1)
-        # f.tight_layout()
+        # f.text(0.5, 0.28, '$X / D$', ha='center', fontsize = 11, font = 'Times New Roman')
+        # f.text(0.02, 0.5, '$Y / D$', va='center', rotation='vertical', fontsize = 11, font = 'Times New Roman')
+        # cb_ax = f.add_axes([0.07, 0.18, 0.86, 0.03])  # [left, bottom, width, height]
+        # cb = f.colorbar(im, cax=cb_ax, orientation='horizontal')
+        # cb.ax.set_xlabel('$RMSE_{u^{\prime}}$', fontsize = 11, font = 'Times New Roman')
+        # # cb.ax.tick_params(labelsize=10) # set the font size for the colorbar tick labels
+        # f.subplots_adjust(left=0.09, right=0.90, bottom=0.1, top=0.95, wspace=0.1, hspace=0.1)
+        # # f.tight_layout()
 
-        plt.savefig(f'{folder_path}/{sol_path}/Error.png', dpi=300, bbox_inches='tight')
+        # plt.savefig(f'{folder_path}/{sol_path}/Error.png', dpi=300, bbox_inches='tight')
 
 
-        u1 = LOrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']],order='F')
-        u2 = GPrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']],order='F')
-        aa = u1 - u2
-        error_aux = np.mean(np.sqrt(np.mean((u1-u2)**2,1)),0)
+        # u1 = LOrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']],order='F')
+        # u2 = GPrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']],order='F')
+        # aa = u1 - u2
+        # error_aux = np.mean(np.sqrt(np.mean((u1-u2)**2,1)),0)
 
-        if not os.path.exists(f'{folder_path}/Matlab'):
-            os.makedirs(f'{folder_path}/Matlab')
-        sio.savemat(f'{folder_path}/Matlab/snap10.mat', {'TR': TR_Test['uf'][0:param['Np'],Nim].reshape([param['m'],param['n']]),'LOR': LOrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']]), 'GP' : GPrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']])})
-        sio.savemat(f'{folder_path}/Matlab/snap16.mat', {'TR': TR_Test['uf'][0:param['Np'],Nim+5].reshape([param['m'],param['n']]), 'LOR': LOrecon['Urec'][0:param['Np'],Nim+5].reshape([param['m'],param['n']]), 'GP' : GPrecon['Urec'][0:param['Np'],Nim+5].reshape([param['m'],param['n']])})
-        sio.savemat(f'{folder_path}/Matlab/grid.mat', {'X': grid['X'], 'Y':grid['Y']})
-        sio.savemat(f'{folder_path}/Matlab/error.mat', {'ORI_LOR': ORI_LOR['u_rmse'][:,].reshape([param['m'],param['n']]),'LOR_GP': LOR_GP['u_rmse'][:,].reshape([param['m'],param['n']]), 'ORI_GP' : ORI_GP['u_rmse'][:,].reshape([param['m'],param['n']])})
-        sio.savemat(f'{folder_path}/Matlab/error_t.mat', {'ORI_LOR': ORI_LOR['u_fom'][:,],'LOR_GP': LOR_GP['u_fom'][:,], 'ORI_GP' : ORI_GP['u_fom'][:,]})
-
+        # if not os.path.exists(f'{folder_path}/Matlab'):
+        #     os.makedirs(f'{folder_path}/Matlab')
+        # sio.savemat(f'{folder_path}/Matlab/snap10.mat', {'TR': TR_Test['uf'][0:param['Np'],Nim].reshape([param['m'],param['n']]),'LOR': LOrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']]), 'GP' : GPrecon['Urec'][0:param['Np'],Nim].reshape([param['m'],param['n']])})
+        # sio.savemat(f'{folder_path}/Matlab/snap16.mat', {'TR': TR_Test['uf'][0:param['Np'],Nim+5].reshape([param['m'],param['n']]), 'LOR': LOrecon['Urec'][0:param['Np'],Nim+5].reshape([param['m'],param['n']]), 'GP' : GPrecon['Urec'][0:param['Np'],Nim+5].reshape([param['m'],param['n']])})
+        # sio.savemat(f'{folder_path}/Matlab/grid.mat', {'X': grid['X'], 'Y':grid['Y']})
+        # sio.savemat(f'{folder_path}/Matlab/error.mat', {'ORI_LOR': ORI_LOR['u_rmse'][:,].reshape([param['m'],param['n']]),'LOR_GP': LOR_GP['u_rmse'][:,].reshape([param['m'],param['n']]), 'ORI_GP' : ORI_GP['u_rmse'][:,].reshape([param['m'],param['n']])})
+        # sio.savemat(f'{folder_path}/Matlab/error_t.mat', {'ORI_LOR': ORI_LOR['u_fom'][:,],'LOR_GP': LOR_GP['u_fom'][:,], 'ORI_GP' : ORI_GP['u_fom'][:,]})
 
         #%% Plot errors 
         # fig, ax = plt.subplots()
@@ -1145,16 +1344,16 @@ def main():
 
         #%% Plot Figures of merit
         plt.figure()
-        plt.plot(LOR_GP['V_fom'],label='LOR-GP', linestyle='-.', color='blue')
-        plt.plot(ORI_GP['V_fom'],label='Ori-GP',linestyle='-', color='blue')
-        plt.plot(ORI_LOR['V_fom'],label='Ori-LOR', linestyle='-', color='black')
-        plt.plot(LOR_interp['V_fom'],label='LOR_interp', linestyle='-.', color='green')
-        plt.plot(ORI_interp['V_fom'],label='ORI_interp', linestyle='-', color='green')
-        plt.ylabel('$MSE$')
+        plt.plot(LOR_GP['U_fom'],label='LOR-GP', linestyle='-.', color='blue')
+        plt.plot(ORI_GP['U_fom'],label='Ori-GP',linestyle='-', color='blue')
+        plt.plot(ORI_LOR['U_fom'],label='Ori-LOR', linestyle='-', color='black')
+        plt.plot(LOR_interp['U_fom'],label='LOR_interp', linestyle='-.', color='green')
+        plt.plot(ORI_interp['U_fom'],label='ORI_interp', linestyle='-', color='green')
+        plt.ylabel('$Mean cosine similarity$')
         plt.xlabel('$\Delta N_{snapshot}$')
         # plt.ylim(0,1)
         plt.grid()
-        plt.title('Streamwise RMSE vs snapshot separation')
+        # plt.title('Cosine similarity vs snapshot separation')
 
         # Adding a legend
         plt.legend()
@@ -1162,7 +1361,7 @@ def main():
         plt.show()
 
         if FlagPlots:
-            plt.savefig(f'{folder_path}/{sol_path}/V_FOM.png', dpi=300, bbox_inches='tight') 
+            plt.savefig(f'{folder_path}/{sol_path}/u_FOM.png', dpi=300, bbox_inches='tight') 
             
             
         # plt.figure()
@@ -1188,54 +1387,54 @@ def main():
         
         #%% Plot temporal modes
         
-        fig, axes = plt.subplots(3, 1, figsize=(8, 12))
+        # fig, axes = plt.subplots(3, 1, figsize=(8, 12))
         
-        time_final = a_recon.shape[0]
+        # time_final = a_recon.shape[0]
         
                 
-        # Now, axes is a 1-dimensional array containing the subplot axes
-        # You can access each subplot using indexing, e.g., axes[0], axes[1], axes[2]
-        # Example usage:
-        axes[0].plot(TR_Test['t'][0:time_final],TR_Test['a'][modes[0]-1,0:time_final] , linestyle='-', color='black', label = 'PIV')  # Plot on the first subplot
-        axes[0].plot(TR_Test['t'][0:time_final],a_recon[0:time_final,modes[0]] , linestyle='-.', color='blue', label = 'GP')  # Plot on the first subplot
-        axes[0].plot(TR_Test['t'][0:time_final],a_interp['a'][0:time_final,modes[0]-1] , linestyle='-.', color='green', label = 'interp')  # Plot on the first subplot
-        axes[0].plot(NTR_Test['t'][0:int(time_final/param['dsnaps'])],GPrecon['a'][0:int(time_final/param['dsnaps']),modes[0]-1] , linestyle='', marker='*', color='red', label = 'NTR')  # Plot on the first subplot
+        # # Now, axes is a 1-dimensional array containing the subplot axes
+        # # You can access each subplot using indexing, e.g., axes[0], axes[1], axes[2]
+        # # Example usage:
+        # axes[0].plot(TR_Test['t'][0:time_final],TR_Test['a'][modes[0]-1,0:time_final] , linestyle='-', color='black', label = 'PIV')  # Plot on the first subplot
+        # axes[0].plot(TR_Test['t'][0:time_final],a_recon[0:time_final,modes[0]] , linestyle='-.', color='blue', label = 'GP')  # Plot on the first subplot
+        # axes[0].plot(TR_Test['t'][0:time_final],a_interp['a'][0:time_final,modes[0]-1] , linestyle='-.', color='green', label = 'interp')  # Plot on the first subplot
+        # axes[0].plot(NTR_Test['t'][0:int(time_final/param['dsnaps'])],GPrecon['a'][0:int(time_final/param['dsnaps']),modes[0]-1] , linestyle='', marker='*', color='red', label = 'NTR')  # Plot on the first subplot
 
-        # axes[0].set_title('First Subplot')
-        axes[0].set_xlabel('')
-        axes[0].set_ylabel(f'$a_{modes[0]}$')
-        axes[0].legend()
+        # # axes[0].set_title('First Subplot')
+        # axes[0].set_xlabel('')
+        # axes[0].set_ylabel(f'$a_{modes[0]}$')
+        # axes[0].legend()
         
-        axes[1].plot(TR_Test['t'][0:time_final],TR_Test['a'][modes[1]-1,0:time_final] , linestyle='-', color='black', label = 'PIV')  # Plot on the first subplot
-        axes[1].plot(TR_Test['t'][0:time_final],a_recon[0:time_final,modes[1]] , linestyle='-.', color='blue', label = 'GP')  # Plot on the first subplot
-        axes[1].plot(TR_Test['t'][0:time_final],a_interp['a'][0:time_final,modes[1]-1] , linestyle='-.', color='green', label = 'interp')  # Plot on the first subplot
-        axes[1].plot(NTR_Test['t'][0:int(time_final/param['dsnaps'])],GPrecon['a'][0:int(time_final/param['dsnaps']),modes[1]-1] , linestyle='', marker='*', color='red', label = 'NTR')  # Plot on the first subplot
-        # axes[0].set_title('First Subplot')
-        axes[1].set_xlabel('')
-        axes[1].set_ylabel(f'$a_{modes[1]}$')
-        axes[1].legend()
+        # axes[1].plot(TR_Test['t'][0:time_final],TR_Test['a'][modes[1]-1,0:time_final] , linestyle='-', color='black', label = 'PIV')  # Plot on the first subplot
+        # axes[1].plot(TR_Test['t'][0:time_final],a_recon[0:time_final,modes[1]] , linestyle='-.', color='blue', label = 'GP')  # Plot on the first subplot
+        # axes[1].plot(TR_Test['t'][0:time_final],a_interp['a'][0:time_final,modes[1]-1] , linestyle='-.', color='green', label = 'interp')  # Plot on the first subplot
+        # axes[1].plot(NTR_Test['t'][0:int(time_final/param['dsnaps'])],GPrecon['a'][0:int(time_final/param['dsnaps']),modes[1]-1] , linestyle='', marker='*', color='red', label = 'NTR')  # Plot on the first subplot
+        # # axes[0].set_title('First Subplot')
+        # axes[1].set_xlabel('')
+        # axes[1].set_ylabel(f'$a_{modes[1]}$')
+        # axes[1].legend()
         
-        axes[2].plot(TR_Test['t'][0:time_final],TR_Test['a'][modes[2]-1,0:time_final] , linestyle='-', color='black', label = 'PIV')  # Plot on the first subplot
-        axes[2].plot(TR_Test['t'][0:time_final],a_recon[0:time_final,modes[2]] , linestyle='-.', color='blue', label = 'GP')  # Plot on the first subplot
-        axes[2].plot(TR_Test['t'][0:time_final],a_interp['a'][0:time_final,modes[2]-1] , linestyle='-.', color='green', label = 'interp')  # Plot on the first subplot
-        axes[2].plot(NTR_Test['t'][0:int(time_final/param['dsnaps'])],GPrecon['a'][0:int(time_final/param['dsnaps']),modes[2]-1] , linestyle='', marker='*', color='red', label = 'NTR')  # Plot on the first subplot
-        # axes[0].set_title('First Subplot')
-        axes[2].set_xlabel('')
-        axes[2].set_ylabel(f'$a_{modes[2]}$')
-        # Add legend
-        axes[2].legend()
-        # Add a common title to all subplots
-        fig.suptitle('Temporal modes', fontsize=16)
+        # axes[2].plot(TR_Test['t'][0:time_final],TR_Test['a'][modes[2]-1,0:time_final] , linestyle='-', color='black', label = 'PIV')  # Plot on the first subplot
+        # axes[2].plot(TR_Test['t'][0:time_final],a_recon[0:time_final,modes[2]] , linestyle='-.', color='blue', label = 'GP')  # Plot on the first subplot
+        # axes[2].plot(TR_Test['t'][0:time_final],a_interp['a'][0:time_final,modes[2]-1] , linestyle='-.', color='green', label = 'interp')  # Plot on the first subplot
+        # axes[2].plot(NTR_Test['t'][0:int(time_final/param['dsnaps'])],GPrecon['a'][0:int(time_final/param['dsnaps']),modes[2]-1] , linestyle='', marker='*', color='red', label = 'NTR')  # Plot on the first subplot
+        # # axes[0].set_title('First Subplot')
+        # axes[2].set_xlabel('')
+        # axes[2].set_ylabel(f'$a_{modes[2]}$')
+        # # Add legend
+        # axes[2].legend()
+        # # Add a common title to all subplots
+        # fig.suptitle('Temporal modes', fontsize=16)
 
-        # Adjust layout to prevent overlap
-        plt.tight_layout()
+        # # Adjust layout to prevent overlap
+        # plt.tight_layout()
 
         
-        # Show the plot
-        plt.show()
+        # # Show the plot
+        # plt.show()
 
-        if FlagPlots:
-            plt.savefig(f'{folder_path}/{sol_path}/modes.png', dpi=300, bbox_inches='tight') 
+        # if FlagPlots:
+        #     plt.savefig(f'{folder_path}/{sol_path}/modes.png', dpi=300, bbox_inches='tight') 
 
         #%% Videos
                 

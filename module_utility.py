@@ -249,36 +249,88 @@ def compute_error(error,set1,set2,NTR_tind,ref,param,flag_sep):
     u2 = set2[0:param['Np'],:]
     v2 = set2[param['Np']:,:]
 
-    # Root mean squared error: sqrt((mean(data1-data2)**2,1))
-    # error['u_rmse'] = np.sqrt(np.mean((u1-u2)**2,1))/ref['u']
-    # error['v_rmse'] = np.sqrt(np.mean((v1-v2)**2,1))/ref['v']
-    error['u_rmse'] = np.sqrt(np.mean((u1-u2)**2,1))
-    error['v_rmse'] = np.sqrt(np.mean((v1-v2)**2,1))
     Dt = int(NTR_tind[1] - NTR_tind[0])
+
+    # # Root mean squared error: sqrt((mean(data1-data2)**2,1))
+    # error['u_rmse'] = np.sqrt(np.mean((u1-u2)**2,1))
+    # error['v_rmse'] = np.sqrt(np.mean((v1-v2)**2,1))
     
     if flag_sep:
-        # error['u_fom'] = np.zeros([NTR_tind.shape[0]-2,1])
-        # error['v_fom'] = np.zeros([NTR_tind.shape[0]-2,1])
         
-        # aux1 = np.sqrt(np.mean((u1-u2)**2,0))/ref['u']
-        # aux2 = np.sqrt(np.mean((v1-v2)**2,0))/ref['v']
-        
-        aux1 = np.mean((u1-u2)**2,0)/ref['u']**2
-        aux2 = np.mean((v1-v2)**2,0)/ref['v']**2
-        auxV = (np.mean((u1-u2)**2,0)+ np.mean((v1-v2)**2,0))/(ref['u']**2+ref['v']**2)
+        # # Root mean squared error: sqrt((mean(data1-data2)**2,1))
+
+        aux1 = np.mean((u1-u2)**2,1)/ref['u']**2
+        aux2 = np.mean((v1-v2)**2,1)/ref['v']**2
+        auxV = (np.mean((u1-u2)**2,1)+ np.mean((v1-v2)**2,1))/(ref['u']**2+ref['v']**2)
         
         
+        error['u_mse'] = aux1
+        error['v_mse'] = aux2
+        error['V_mse'] = auxV
+        
+        # error['u_mse'] = np.zeros([Dt+1,1])
+        # error['v_mse'] = np.zeros([Dt+1,1])
+        # error['V_mse'] = np.zeros([Dt+1,1])
+        
+        # for i in range(0,Dt+1):
+        #     error['u_mse'][i] = np.mean(aux1[i:-Dt+i:Dt])
+        #     error['v_mse'][i] = np.mean(aux2[i:-Dt+i:Dt])
+        #     error['V_mse'][i] = np.mean(auxV[i:-Dt+i:Dt])
+    
+    # Cosine similarity error
+    error['u'] = np.zeros([u1.shape[1]])
+    error['v'] = np.zeros([v1.shape[1]])
+    error['U'] = np.zeros([set1.shape[1]])
+    
+    # error['u_rmse'] = np.sqrt(np.mean((u1-u2)**2,1))
+    # error['v_rmse'] = np.sqrt(np.mean((v1-v2)**2,1))
+    
+    # if flag_sep:
+        
+    #     aux1 = np.mean((u1-u2)**2,0)/ref['u']**2
+    #     aux2 = np.mean((v1-v2)**2,0)/ref['v']**2
+    #     auxV = (np.mean((u1-u2)**2,0)+ np.mean((v1-v2)**2,0))/(ref['u']**2+ref['v']**2)
+        
+        
+    #     error['u_fom'] = np.zeros([Dt+1,1])
+    #     error['v_fom'] = np.zeros([Dt+1,1])
+    #     error['V_fom'] = np.zeros([Dt+1,1])
+        
+    #     for i in range(0,Dt+1):
+    #         error['u_fom'][i] = np.mean(aux1[i:-Dt+i:Dt])
+    #         error['v_fom'][i] = np.mean(aux2[i:-Dt+i:Dt])
+    #         error['V_fom'][i] = np.mean(auxV[i:-Dt+i:Dt])
+    
+    # Cosine similarity error
+    error['u'] = np.zeros([u1.shape[1]])
+    error['v'] = np.zeros([v1.shape[1]])
+    error['U'] = np.zeros([set1.shape[1]])
+
+    for i in range(u1.shape[1]):
+        col_u1 = u1[:, i]
+        col_u2 = u2[:, i]
+        
+        col_v1 = v1[:, i]
+        col_v2 = v2[:, i]
+        
+        col_U1 = set1[:,i]
+        col_U2 = set2[:,i]
+
+
+        # Compute cosine similarity
+        error['u'][i] = np.dot(col_u1, col_u2) / (np.linalg.norm(col_u1)**2)
+        error['v'][i] = np.dot(col_v1, col_v2) / (np.linalg.norm(col_v1)**2)
+        error['U'][i] = np.dot(col_U1, col_U2) / (np.linalg.norm(col_U1)**2)
+    
         error['u_fom'] = np.zeros([Dt+1,1])
         error['v_fom'] = np.zeros([Dt+1,1])
-        error['V_fom'] = np.zeros([Dt+1,1])
-        
-        for i in range(0,Dt+1):
-            # error['u_fom'][i-1] = np.mean(np.sqrt(np.mean((u1[:,0:-Dt:Dt]-u1[:,i:-Dt+i:Dt])**2,1)),0)
-            # error['v_fom'][i-1] = np.mean(np.sqrt(np.mean((v1[:,0:-Dt:Dt]-v1[:,i:-Dt+i:Dt])**2,1)),0)
-            error['u_fom'][i] = np.mean(aux1[i:-Dt+i:Dt])
-            error['v_fom'][i] = np.mean(aux2[i:-Dt+i:Dt])
-            error['V_fom'][i] = np.mean(auxV[i:-Dt+i:Dt])
-            
+        error['U_fom'] = np.zeros([Dt+1,1])
+
+    for i in range(0,Dt+1):
+        error['u_fom'][i] = np.mean(error['u'][i:-Dt+i:Dt])
+        error['v_fom'][i] = np.mean(error['v'][i:-Dt+i:Dt])
+        error['U_fom'][i] = np.mean(error['U'][i:-Dt+i:Dt])
+
     return error
             
             
