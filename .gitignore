@@ -1,0 +1,6 @@
+venv
+.idea
+data
+others
+results
+*.pyc

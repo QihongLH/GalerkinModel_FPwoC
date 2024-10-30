@@ -1,0 +1,24 @@
+{
+	"path_grid"        : ".\\data\\FP_grid.h5",
+	"path_train"       : ".\\data\\FP_14k_24k.h5",
+	"path_test"        : ".\\data\\FP_10k_13k.h5",
+
+	"Re"               : 130,
+	"truncation_value" : 10,
+	"sparsify_tol"     : 1e-5,
+	"N_process_int"    : 1,
+	"ts_train"         : 1,
+	"ts_test"          : 5,
+	"Dt_test"          : 0.1,
+
+	"flag_flow"        : "FP",
+	"flag_pressure"    : "none",
+	"flag_truncation"  : "manual",
+	"flag_train_res"   : "TR",
+	"flag_test_res"    : "TR",
+	"flag_acceleration": 1,
+	"flag_integration" : "einsum",
+	"flag_sparsify"    : 0,
+	"flag_loaders"     : ["stats", "POD"],
+	"flag_savers"      : []
+}

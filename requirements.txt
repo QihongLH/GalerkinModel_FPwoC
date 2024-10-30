@@ -1,0 +1,7 @@
+numpy
+scipy
+matplotlib
+lic
+h5py
+loguru
+tqdm
