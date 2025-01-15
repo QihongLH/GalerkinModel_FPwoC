@@ -131,7 +131,7 @@ def main(INPUTS):
     test_GP = prediction.integrator(test_NTR['a'], test_NTR['t'], test_NTR['Dt'], GPcoef, PODr['Phi'],
                          flag_integration, N_process_int)
     t1 = time.time()
-    logger.debug("FINISHED integration of Galerkin Projection dynamical system...")
+    logger.debug("Finished integration of Galerkin Projection dynamical system...")
     test_GP['t_int'] = t1 - t0
 
     # Cubic Spline interpolation
@@ -154,7 +154,8 @@ def main(INPUTS):
         logger.debug("Saved " + save_str + "...")
 
     #%% MOVE LOGGER TO RESULTS
-    subdir_path = os.path.join(flag_flow + '_Re' + str(Re), r'.\results')
+    logger.stop()
+    subdir_path = os.path.join(r'.\results', flag_flow + '_Re' + str(Re))
     subsubdir_path = os.path.join(subdir_path, flag_truncation + '_' + str(truncation_value) + '_' + 'pressure' + '_' + flag_pressure)
     os.rename(logger_name, os.path.join(subsubdir_path, logger_name))
 
