@@ -6,7 +6,7 @@ import random
 import modules.dynamics.pressure as pressure
 import modules.dynamics.differentiation as diff
 
-def create_train_set(grid, flow, flag_acceleration, flag_resolution, flag_presure, ts=0):
+def create_train_set(grid, flow, flag_acceleration, flag_resolution, flag_separation, flag_presure, ts=0):
     """
     Prepares dictionary with snapshot matrices for training set, always NTR with irregular spacing.
 
@@ -15,6 +15,7 @@ def create_train_set(grid, flow, flag_acceleration, flag_resolution, flag_presur
     :param flag_acceleration: boolean indicating to compute acceleration of flow (1) or not (0)
     :param flag_resolution: 'NTR' or 'TR', indicating if read dictionary has sufficient time resolution and needs to be
     transformed to NTR or not
+    :param flag_separation: 'regular' or 'irregular', indicating if time undersampling shall be reg or irreg
     :param flag_pressure: if different from 'none', requires pressure gradient to be computed, thus requiring acceleration
     :param ts: irregular time separation value in case 'TR' flag is activated
 
@@ -67,8 +68,14 @@ def create_train_set(grid, flow, flag_acceleration, flag_resolution, flag_presur
     nt = np.shape(train['Ddt'])[1]
     if flag_resolution == 'TR':
         Dt = train['t'][1] - train['t'][0]
-        nt_NTR = int(np.floor((nt - 1) / np.floor(ts / Dt)) + 1)
-        it = np.sort(random.sample(range(nt), nt_NTR))
+
+        if flag_separation == 'irregular':
+            # Undersample NTR irregularly
+            nt_NTR = int(np.floor((nt - 1) / np.floor(ts / Dt)) + 1)
+            it = np.sort(random.sample(range(nt), nt_NTR))
+        elif flag_separation == 'regular':
+            # Undersample NTR regularly
+            it = np.arange(0, nt + 1, np.ceil(ts / Dt)).astype(int)
 
         train['t'] = train['t'][it]
         for i in vars:

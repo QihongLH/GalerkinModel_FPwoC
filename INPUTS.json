@@ -15,6 +15,7 @@
 	"flag_pressure"    : "none",
 	"flag_truncation"  : "energy",
 	"flag_train_res"   : "TR",
+	"flag_train_sep"   : "irregular",
 	"flag_test_res"    : "TR",
 	"flag_acceleration": 1,
 	"flag_integration" : "matrix",

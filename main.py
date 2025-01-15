@@ -34,6 +34,7 @@ def main(INPUTS):
     flag_pressure = INPUTS["flag_pressure"]         # GP pressure coefficients retrieval flag ('none', 'analytical', 'empirical')
     flag_truncation = INPUTS["flag_truncation"]     # POD truncation method ('manual','energy','optimal','elbow','none')
     flag_train_res = INPUTS["flag_train_res"]       # Resolution of training read dataset ('TR', 'NTR')
+    flag_train_sep = INPUTS["flag_train_sep"]       # Time undersampling separation of training read dataset ('regular', 'irregular')
     flag_test_res = INPUTS["flag_test_res"]         # Resolution of testing read dataset ('TR', 'NTR')
     flag_acceleration = INPUTS["flag_acceleration"] # Boolean to retrieve or not acceleration fields of training and testing
     flag_integration = INPUTS["flag_integration"]   # Type of integration system used ('matrix','einsum')
@@ -58,7 +59,7 @@ def main(INPUTS):
             logger.debug("Read training set...")
 
             # Create NTR training set
-            train = datasets.create_train_set(grid, flow, flag_acceleration, flag_train_res, flag_pressure, ts_train)
+            train = datasets.create_train_set(grid, flow, flag_acceleration, flag_train_res, flag_train_sep, flag_pressure, ts_train)
             logger.debug("Prepared training set...")
             del flow
 
