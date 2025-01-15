@@ -40,7 +40,10 @@ def main(INPUTS):
     flag_savers = INPUTS["flag_savers"]             # List indicating entries to save ('stats','GPcoef','POD','PODr','test_GP','test_interp')
     flag_save_fields = INPUTS["flag_save_fields"]   # Boolean to save predicted fields
 
+    logger_name = "logger_ts_" + str(ts_test) + ".log"
+
     #%% I. DATA PREPARATION
+    logger.add(logger_name)
     logger.info("I. DATA PREPARATION")
     # Read grid
     grid = readers.read_h5(path_grid)
@@ -150,6 +153,10 @@ def main(INPUTS):
                              ts_test)
         logger.debug("Saved " + save_str + "...")
 
+    #%% MOVE LOGGER TO RESULTS
+    subdir_path = os.path.join(flag_flow + '_Re' + str(Re), r'.\results')
+    subsubdir_path = os.path.join(subdir_path, flag_truncation + '_' + str(truncation_value) + '_' + 'pressure' + '_' + flag_pressure)
+    os.rename(logger_name, os.path.join(subsubdir_path, logger_name))
 
     #%% VII. PLOTS
 
