@@ -29,13 +29,20 @@ def galerkin_coefs(grid, Phif, Phi0, Sigmaf, Psif, Re, flag_pressure, flag_integ
     Phi0 = Phi0.reshape(-1, 1)
 
     # Retrieve linear-viscous and quadratic-convective coefficients
+    t0 = time.time()
     Lv = linear_viscous(grid, Phif, Phi0)
+    t1 = time.time()
+    t_lv = t1 - t0
     logger.debug("Retrieved linear viscous coefficients...")
 
+    t0 = time.time()
     Qc = quadratic_convective(grid, Phif, Phi0)
+    t1 = time.time()
+    t_qc = t1 - t0
     logger.debug("Retrieved quadratic convective coefficients...")
 
     # Retrieve pressure coefficients depending on flags
+    t0 = time.time()
     if flag_pressure == 'analytical':
         Lp = np.zeros_like(Lv)
         Qp = quadratic_pressure(Phif, Phi0, Sigmaf, Psif, DP)
@@ -47,6 +54,8 @@ def galerkin_coefs(grid, Phif, Phi0, Sigmaf, Psif, Re, flag_pressure, flag_integ
     elif flag_pressure == 'none':
         Lp = np.zeros_like(Lv)
         Qp = np.zeros_like(Qc)
+    t1 = time.time()
+    t_qp = t1-  t0
 
     C = Lp[1:,0] + 1 / Re * Lv[1:,0] + Qp[1:,0,0] + Qc[1:,0,0]
     L = Lp[1:,1:] + 1 / Re * Lv[1:,1:] + Qp[1:,0,1:] + Qc[1:,0,1:] + Qp[1:,1:,0] + Qc[1:,1:,0]
@@ -90,6 +99,9 @@ def galerkin_coefs(grid, Phif, Phi0, Sigmaf, Psif, Re, flag_pressure, flag_integ
                 count += 1
 
         GPcoef['Chi'] = Chi
+        GPcoef['t_lv'] = t_lv
+        GPcoef['t_qc'] = t_qc
+        GPcoef['t_qp'] = t_qp
         logger.debug("Re-organized matrix of coefficients...")
 
     return GPcoef

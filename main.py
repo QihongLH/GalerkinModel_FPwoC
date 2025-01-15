@@ -123,9 +123,12 @@ def main(INPUTS):
     logger.info("IV. INTEGRATION")
     # Galerkin projection dynamics backward-forward weighted integration
     logger.debug("STARTED integration of Galerkin Projection dynamical system...")
+    t0 = time.time()
     test_GP = prediction.integrator(test_NTR['a'], test_NTR['t'], test_NTR['Dt'], GPcoef, PODr['Phi'],
                          flag_integration, N_process_int)
+    t1 = time.time()
     logger.debug("FINISHED integration of Galerkin Projection dynamical system...")
+    test_GP['t_int'] = t1 - t0
 
     # Cubic Spline interpolation
     test_interp = prediction.interpolator(test_NTR['a'], test_NTR['t'], test_NTR['Dt'], PODr['Phi'])
