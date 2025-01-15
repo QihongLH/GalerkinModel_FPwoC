@@ -4,8 +4,8 @@ import time
 from loguru import logger
 
 # LOCAL FUNCTIONS
-from modules.dynamics.differentiation import get_laplacian_2D, diff_1st_2D
-from modules.dynamics.system_eqs import pool_polynomials
+import modules.dynamics.differentiation as diff
+import modules.dynamics.system_eqs as system_eqs
 
 def galerkin_coefs(grid, Phif, Phi0, Sigmaf, Psif, Re, flag_pressure, flag_integration, DP=[]):
     """
@@ -66,7 +66,7 @@ def galerkin_coefs(grid, Phif, Phi0, Sigmaf, Psif, Re, flag_pressure, flag_integ
         # Get non-normalized temporal modes and library of functions up to 2nd order polynomials
         af = np.dot(np.diag(Sigmaf), Psif)
         nr = np.shape(Phif)[1]
-        Theta = pool_polynomials(af.T)
+        Theta = system_eqs.pool_polynomials(af.T)
 
         # Parameters and initialization of matrix coefficients
         nf = np.shape(Theta)[1]
@@ -115,7 +115,7 @@ def sparsify_coeffs(Sigmaf, Psif, dPsif, Chi, tol):
     daf = np.dot(np.diag(Sigmaf), dPsif)
 
     # Library of functions up to 2nd order polynomials
-    Theta = pool_polynomials(af.T)
+    Theta = system_eqs.pool_polynomials(af.T)
 
     # Norm of library functions & derivatives
     normTheta = np.linalg.norm(Theta, axis=0)
@@ -143,7 +143,7 @@ def linear_viscous(grid, Phif, Phi0):
     Phi = np.concatenate((Phi0, Phif), axis=1)
 
     # 2D Laplacian of POD modes
-    D2Phi = get_laplacian_2D(grid, Phi)
+    D2Phi = diff.get_laplacian_2D(grid, Phi)
 
     # Linear-viscous coefficients
     Lv = np.dot(Phi.T, D2Phi)
@@ -175,7 +175,7 @@ def quadratic_convective(grid, Phif, Phi0):
     Phiv = Phi[m*n:2*m*n, :]
 
     # Get gradient of spatial modes
-    Phix, Phiy = diff_1st_2D(grid, Phi)
+    Phix, Phiy = diff.diff_1st_2D(grid, Phi)
     Phiux = Phix[0:m*n, :]
     Phiuy = Phiy[0:m*n, :]
     Phivx = Phix[m*n:2*m*n, :]

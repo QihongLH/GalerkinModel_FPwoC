@@ -6,7 +6,7 @@ from scipy.interpolate import CubicSpline
 from loguru import logger
 
 # LOCAL FUNCTIONS
-from modules.dynamics.system_eqs import odeGalerkin_einsum, odeGalerkin_matrix
+import modules.dynamics.system_eqs as system_eqs
 
 def BFI(i, ni, Xi_f, Xi_b, t_sub, GP, flag_integration):
     """
@@ -38,12 +38,12 @@ def BFI(i, ni, Xi_f, Xi_b, t_sub, GP, flag_integration):
     # Separate forward and backward integrations
 
     if flag_integration == 'matrix':
-        sol_f = solve_ivp(lambda t,y: odeGalerkin_matrix(t,y,Chi), t_span_f, Xi_f, method='RK45', t_eval=t_f)
-        sol_b = solve_ivp(lambda t,y: odeGalerkin_matrix(t,y,Chi), t_span_b, Xi_b, method='RK45', t_eval=t_b)
+        sol_f = solve_ivp(lambda t,y: system_eqs.odeGalerkin_matrix(t,y,Chi), t_span_f, Xi_f, method='RK45', t_eval=t_f)
+        sol_b = solve_ivp(lambda t,y: system_eqs.odeGalerkin_matrix(t,y,Chi), t_span_b, Xi_b, method='RK45', t_eval=t_b)
 
     elif flag_integration == 'einsum':
-        sol_f = solve_ivp(lambda t,y: odeGalerkin_einsum(t,y,C,L,Q), t_span_f, Xi_f, method='RK45', t_eval=t_f)
-        sol_b = solve_ivp(lambda t,y: odeGalerkin_einsum(t,y,C,L,Q), t_span_b, Xi_b, method='RK45', t_eval=t_b)
+        sol_f = solve_ivp(lambda t,y: system_eqs.odeGalerkin_einsum(t,y,C,L,Q), t_span_f, Xi_f, method='RK45', t_eval=t_f)
+        sol_b = solve_ivp(lambda t,y: system_eqs.odeGalerkin_einsum(t,y,C,L,Q), t_span_b, Xi_b, method='RK45', t_eval=t_b)
 
     # Retrieve solutions
     t_f_sol = sol_f.t

@@ -2,7 +2,7 @@
 import numpy as np
 
 # LOCAL FUNCTIONS
-from modules.dynamics.differentiation import diff_1st_2D, get_laplacian_2D
+import modules.dynamics.differentiation as diff
 
 def get_pgrad(grid, D, dDdt, Re):
     """
@@ -23,14 +23,14 @@ def get_pgrad(grid, D, dDdt, Re):
     V = D[m*n:2*m*n, :]
 
     # Get gradient
-    Dx, Dy = diff_1st_2D(grid, D)
+    Dx, Dy = diff.diff_1st_2D(grid, D)
     Ux = Dx[0:m*n, :]
     Uy = Dy[0:m*n, :]
     Vx = Dx[m*n:2*m*n, :]
     Vy = Dy[m*n:2*m*n, :]
 
     # Get Laplacian of the flow
-    D2D = get_laplacian_2D(grid, D)
+    D2D = diff.get_laplacian_2D(grid, D)
 
     # Enforce divergence = DivD = 0 (incompressible flow)
     #DivD = get_divergence(grid, D)

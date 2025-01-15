@@ -3,8 +3,8 @@ import numpy as np
 import random
 
 # LOCAL FUNCTIONS
-from modules.dynamics.pressure import get_pgrad
-from modules.dynamics.differentiation import diff_time
+import modules.dynamics.pressure as pressure
+import modules.dynamics.differentiation as diff
 
 def create_train_set(grid, flow, flag_acceleration, flag_resolution, flag_presure, ts=0):
     """
@@ -60,7 +60,7 @@ def create_train_set(grid, flow, flag_acceleration, flag_resolution, flag_presur
     if flag_acceleration or flag_presure != 'none':
         if flag_resolution == 'NTR':
             raise Exception("Acceleration of non-time-resolved data is not possible")
-        train['dDdt'] = diff_time(train['Ddt'], train['t'])
+        train['dDdt'] = diff.diff_time(train['Ddt'], train['t'])
 
     # Change resolution of dataset, if required
     vars = ['Ddt', 'dDdt']
@@ -79,7 +79,7 @@ def create_train_set(grid, flow, flag_acceleration, flag_resolution, flag_presur
     if flag_presure != 'none':
         if flag_resolution == 'NTR':
             raise Exception("Pressure gradient of non-time-resolved data is not possible")
-        train['DP'] = get_pgrad(grid, train['Ddt'] + train['Dm'][:, None], train['dDdt'], train['Re'])
+        train['DP'] = pressure.get_pgrad(grid, train['Ddt'] + train['Dm'][:, None], train['dDdt'], train['Re'])
 
     return train
 
@@ -118,7 +118,7 @@ def create_test_set(flow, Dm, stds, flag_acceleration, flag_resolution, Dt=0, ts
     if flag_acceleration:
         if flag_resolution == 'NTR':
             raise Exception("Acceleration of non-time-resolved data is not possible")
-        test['dDdt'] = diff_time(test['Ddt'], test['t'])
+        test['dDdt'] = diff.diff_time(test['Ddt'], test['t'])
 
     # Change resolution of dataset, if required
     vars = ['Ddt', 'dDdt']
