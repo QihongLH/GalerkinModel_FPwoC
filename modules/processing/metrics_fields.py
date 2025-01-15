@@ -26,17 +26,17 @@ def get_reyn_stresses_2D(grid, Ddt):
 
     return REYN
 
-def get_RMSE(Dtrue, D, B, std_true, flag_type):
+def get_MSE(Dtrue, D, B, var_true, flag_type):
     """
-    Estimates Root Mean Square Error (normalized with standard deviation of ground truth flow) for snapshot matrix
+    Estimates Mean Square Error (normalized with variance of ground truth flow) for snapshot matrix
 
     :param Dtrue: ground truth of snapshot matrix, spatial points x time instants
     :param D: reconstructed snapshot matrix, spatial points x time instants
     :param B: mask grid (1 if body, 0 otherwise)
     :param flag_type: 'W' if whole error, 'S' if spatial, 'T' if temporal
-    :param std_true: standard deviation of ground truth flow
+    :param var_true: variance of ground truth flow (typically std_D ** 2 or (std_u ** 2 + std_v ** 2))
 
-    :return: RMSE
+    :return: MSE
     """
 
     # Parameters
@@ -59,15 +59,14 @@ def get_RMSE(Dtrue, D, B, std_true, flag_type):
 
     # Compute temporal (T), spatial (S) or whole (W) error
     if flag_type == 'T':
-        RMSE = np.sqrt(np.mean((Xtrue - X)**2, axis=0)) / std_true
+        MSE = np.mean((Xtrue - X)**2, axis=0) / var_true
     elif flag_type == 'S':
-        RMSE = np.sqrt(np.mean((Xtrue - X) ** 2, axis=1)) / std_true
+        MSE = np.mean((Xtrue - X) ** 2, axis=1)
+        MSE = (MSE[:nx * ny] + MSE[nx * ny:]) / var_true
     elif flag_type == 'W':
-        RMSE = np.sqrt(np.mean((Xtrue - X) ** 2)) / std_true
+        MSE = np.mean((Xtrue - X) ** 2) / var_true
 
-    # todo: ask for auxV = (np.mean((u1 - u2) ** 2, 1) + np.mean((v1 - v2) ** 2, 1)) / (ref['u'] ** 2 + ref['v'] ** 2)
-
-    return RMSE
+    return MSE
 
 def errort2subsampling(error_t, ts, Dt):
     """
@@ -117,9 +116,7 @@ def get_cos_similarity(Dtrue, D, B):
     X = D[i_nonmask, :][0,:,:]
 
     # Cosine similarity
-    Sc = np.zeros((nt))
-    for t in range(nt):
-        Sc[t] = np.dot(Xtrue[:, t], X[:, t]) / np.linalg.norm(Xtrue[:, t]) ** 2
+    Sc = np.sum(np.multiply(Xtrue, X), axis=0) / np.linalg.norm(Xtrue, axis=0) ** 2
 
     return Sc
 

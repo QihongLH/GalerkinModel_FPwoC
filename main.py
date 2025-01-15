@@ -12,6 +12,8 @@ import modules.processing.datasets as datasets
 import modules.processing.POD as ROM
 import modules.dynamics.galerkin_coefs as galerkin
 import modules.dynamics.integration as prediction
+import modules.processing.metrics_fields as metrics_fields
+import modules.processing.metrics_modes as metrics_modes
 
 def main(INPUTS):
 
@@ -140,7 +142,47 @@ def main(INPUTS):
 
     #%% V. ERROR COMPUTATION
 
+    # MSE spatial error of fields wrt LOR, normalized with variance of fluctuations
+    test_GP['MSE_uv'] = metrics_fields.get_MSE(PODr['Phi'] @ test_TR['a'].T, test_GP['Ddt'], grid['B'],
+                                               stats['std_u'] ** 2 + stats['std_v'] ** 2, 'S')
+    test_interp['MSE_uv'] = metrics_fields.get_MSE(PODr['Phi'] @ test_TR['a'].T, test_interp['Ddt'], grid['B'],
+                                               stats['std_u'] ** 2 + stats['std_v'] ** 2, 'S')
 
+    # Mean cosine similarity of fields wrt LOR
+    test_GP['Sc_uv'] = metrics_fields.get_cos_similarity(PODr['Phi'] @ test_TR['a'].T, test_GP['Ddt'], grid['B'])
+    test_GP['Sc_uv'] = metrics_fields.errort2subsampling(test_GP['Sc_uv'], ts_test, Dt_test)
+    test_interp['Sc_uv'] = metrics_fields.get_cos_similarity(PODr['Phi'] @ test_TR['a'].T, test_interp['Ddt'], grid['B'])
+    test_interp['Sc_uv'] = metrics_fields.errort2subsampling(test_interp['Sc_uv'], ts_test, Dt_test)
+
+    logger.debug("Finished flow field error retrieval...")
+
+    # Relative error of integrated modes
+    test_GP['err_rel_a'] = metrics_modes.get_fom_modes(test_TR['a'], test_GP['X'], 'err_rel')
+    test_interp['err_rel_a'] = metrics_modes.get_fom_modes(test_TR['a'], test_interp['X'], 'err_rel')
+
+    # Cosine similarity of integrated modes
+    test_GP['Sc_a'] = metrics_modes.get_fom_modes(test_TR['a'], test_GP['X'], 'Sc')
+    test_interp['Sc_a'] = metrics_modes.get_fom_modes(test_TR['a'], test_interp['X'], 'Sc')
+
+    # R2 corr coef of integrated modes
+    test_GP['R2c_a'] = metrics_modes.get_fom_modes(test_TR['a'], test_GP['X'], 'R2c')
+    test_interp['R2c_a'] = metrics_modes.get_fom_modes(test_TR['a'], test_interp['X'], 'R2c')
+
+    # Root mean square error of integrated modes
+    test_GP['de_a'] = metrics_modes.get_fom_modes(test_TR['a'], test_GP['X'], 'de')
+    test_interp['de_a'] = metrics_modes.get_fom_modes(test_TR['a'], test_interp['X'], 'de')
+
+    logger.debug("Finished mode error retrieval...")
+
+    # Accuracy fitting of Galerkin system
+    if flag_acceleration:
+        GPcoef['R2d_da_test'] = metrics_modes.get_fit_galerkin_acc(test_TR['a'], test_TR['da'], GPcoef['Chi'])
+
+    # Number of active terms in Galerkin system
+    if flag_integration == 'matrix' and flag_sparsify:
+        GPcoef['n_act_c'], GPcoef['n_act_l'], GPcoef['n_act_q'] = metrics_modes.get_active_terms(GPcoef['Chi'])
+
+    logger.debug("Finished system dynamics error retrieval...")
 
     #%% VI. SAVE RESULTS
     if not flag_save_fields:
