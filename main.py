@@ -38,6 +38,7 @@ def main(INPUTS):
     flag_sparsify = INPUTS["flag_sparsify"]         # Boolean to threshold or not matrix of coefficients
     flag_loaders = INPUTS["flag_loaders"]           # List indicating entries to load ('stats','GPcoef','POD','PODr')
     flag_savers = INPUTS["flag_savers"]             # List indicating entries to save ('stats','GPcoef','POD','PODr','test_GP','test_interp')
+    flag_save_fields = INPUTS["flag_save_fields"]   # Boolean to save predicted fields
 
     #%% I. DATA PREPARATION
     logger.info("I. DATA PREPARATION")
@@ -134,13 +135,21 @@ def main(INPUTS):
     test_interp = prediction.interpolator(test_NTR['a'], test_NTR['t'], test_NTR['Dt'], PODr['Phi'])
     logger.debug("Finished cubic spline interpolation process...")
 
-    #%% V. SAVE RESULTS
-    logger.info("V. SAVE RESULTS")
+    #%% V. ERROR COMPUTATION
+
+
+
+    #%% VI. SAVE RESULTS
+    if not flag_save_fields:
+        test_GP['Ddt'] = []
+        test_interp['Ddt'] = []
+
+    logger.info("VI. SAVE RESULTS")
     for save_str in flag_savers:
-        readers.save_results(eval(save_str), save_str, flag_flow, Re, truncation_value, flag_pressure, flag_truncation)
+        readers.save_results(eval(save_str), save_str, flag_flow, Re, truncation_value, flag_pressure, flag_truncation,
+                             ts_test)
         logger.debug("Saved " + save_str + "...")
 
-    #%% VI. ERROR COMPUTATION
 
     #%% VII. PLOTS
 

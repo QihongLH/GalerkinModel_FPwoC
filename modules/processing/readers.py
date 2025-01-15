@@ -32,7 +32,7 @@ def save_h5(path, dict):
         for key, item in dict.items():
             h5file.create_dataset(key, data=item)
 
-def save_results(result, flag_save, flag_flow, Re, value_truncation, flag_pressure, flag_truncation):
+def save_results(result, flag_save, flag_flow, Re, value_truncation, flag_pressure, flag_truncation, ts_test):
     """
     Saves dictionary of results in folder path
 
@@ -43,6 +43,7 @@ def save_results(result, flag_save, flag_flow, Re, value_truncation, flag_pressu
     :param value_truncation: input value for POD truncation
     :param flag_pressure: flag indicating pressure coefficients retrieval ('none', 'analytical' or 'empirical')
     :param flag_truncation: flag indicating type of POD truncation ('elbow', 'manual', 'optimal', or 'energy')
+    :param ts_test: normalized separation time for testing set
     """
 
     dir = r'.\results'
@@ -62,6 +63,8 @@ def save_results(result, flag_save, flag_flow, Re, value_truncation, flag_pressu
     # If non-truncated POD wants to be saved, write in same directory of flow type
     if flag_save == 'POD' or flag_save == 'stats':
         path = os.path.join(subdir_path, flag_save)
+    if flag_save == 'test_GP' or flag_save == 'test_interp':
+        path = os.path.join(subsubdir_path, flag_save+'_ts_'+str(ts_test))
     else:
         path = os.path.join(subsubdir_path, flag_save)
     save_h5(path, result)

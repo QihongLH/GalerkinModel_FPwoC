@@ -21,4 +21,5 @@
 	"flag_sparsify"    : 0,
 	"flag_loaders"     : ["stats", "POD"],
 	"flag_savers"      : []
+	"flag_save_fields" : 0
 }
