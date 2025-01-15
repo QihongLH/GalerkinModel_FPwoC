@@ -4,22 +4,22 @@
 	"path_test"        : ".\\data\\FP_10k_13k.h5",
 
 	"Re"               : 130,
-	"truncation_value" : 10,
+	"truncation_value" : 0.7,
 	"sparsify_tol"     : 1e-5,
 	"N_process_int"    : 1,
 	"ts_train"         : 1,
-	"ts_test"          : 5,
+	"ts_test"          : 1,
 	"Dt_test"          : 0.1,
 
 	"flag_flow"        : "FP",
 	"flag_pressure"    : "none",
-	"flag_truncation"  : "manual",
+	"flag_truncation"  : "energy",
 	"flag_train_res"   : "TR",
 	"flag_test_res"    : "TR",
 	"flag_acceleration": 1,
-	"flag_integration" : "einsum",
-	"flag_sparsify"    : 0,
+	"flag_integration" : "matrix",
+	"flag_sparsify"    : 1,
 	"flag_loaders"     : ["stats", "POD"],
-	"flag_savers"      : []
+	"flag_savers"      : ["test_GP", "test_interp", "GPcoef", "PODr"],
 	"flag_save_fields" : 0
 }
