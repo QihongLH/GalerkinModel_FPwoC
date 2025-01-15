@@ -82,11 +82,10 @@ def galerkin_coefs(grid, Phif, Phi0, Sigmaf, Psif, Re, flag_pressure, flag_integ
         Chi = np.zeros((nf, nr))
 
         # Dynamics of fluctuating modes corresponding to constant functions
-        Chi[0, :] = 1 / Re * Lv[1:, 0] + Qc[1:, 0, 0] + Qp[1:, 0, 0] + Lp[1:, 0]
+        Chi[0, :] = np.copy(C)
 
         # Dynamics of fluctuating modes corresponding to linear functions
-        for j in range(1, nr + 1):
-            Chi[j, :] = 1 / Re * Lv[1:, j] + Qc[1:, 0, j] + Qp[1:, 0, j] + Qc[1:, j, 0] + Qp[1:, j, 0] + Lp[1:, j]
+        Chi[1:nr + 1, :] = np.copy(L)
 
         # Dynamics of fluctuating modes corresponding to quadratic functions
         count = 0
@@ -203,7 +202,7 @@ def quadratic_convective(grid, Phif, Phi0):
         #DXD = np.multiply(DivPhi[:,j], Phi) + np.concatenate((np.multiply(Phiu[:,j],Phiux) + np.multiply(Phiv[:,j],Phiuy), np.multiply(Phiu[:,j],Phivx) + np.multiply(Phiv[:,j],Phivy)), axis=0)
         DXD = np.concatenate((np.multiply(Phiu[:,j].reshape(-1,1),Phiux) + np.multiply(Phiv[:,j].reshape(-1,1),Phiuy), np.multiply(Phiu[:,j].reshape(-1,1),Phivx) + np.multiply(Phiv[:,j].reshape(-1,1),Phivy)), axis=0)
 
-        Qc[:,j,:] = np.dot(-Phi.T, DXD)
+        Qc[:,j,:] = np.dot(Phi.T, DXD)
 
     return Qc
 
