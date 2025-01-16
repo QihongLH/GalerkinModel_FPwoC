@@ -4,3 +4,7 @@ data
 others
 results
 *.pyc
+docs/build
+docs/make.bat
+docs/Makefile
+*__init__.py
