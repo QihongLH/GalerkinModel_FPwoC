@@ -1,7 +1,6 @@
-numpy
-scipy
-matplotlib
-lic
-h5py
-loguru
-tqdm
+numpy == 1.24.4
+scipy == 1.10.1
+matplotlib == 3.7.5
+lic == 0.4.5
+h5py == 3.11.0
+loguru == 0.7.2
