@@ -227,5 +227,24 @@ if __name__ == '__main__':
     with open("INPUTS.json") as json_file:
         INPUTS = json.load(json_file)
 
-    readers.check_inputs(INPUTS)
-    main(INPUTS)
+    flag_pressures = ["none", "empirical", "analytical"]
+    ts_tests = [1, 2, 4, 8]
+    truncation_values = [0.7, 0.8, 0.9, 0.95, 0.99]
+
+    for truncation_value in truncation_values:
+        for flag_pressure in flag_pressures:
+            for ts_test in ts_tests:
+
+                INPUTS["ts_test"] = ts_test
+                INPUTS["flag_pressure"] = flag_pressure
+                INPUTS["truncation_value"] = truncation_value
+
+                if ts_test == ts_tests[0]:
+                    INPUTS["flag_loaders"] = ["stats", "POD"]
+                    INPUTS["flag_savers"] = ["test_GP", "test_interp", "GPcoef", "PODr"]
+                else:
+                    INPUTS["flag_loaders"] = ["stats", "POD", "PODr", "GPcoef"]
+                    INPUTS["flag_savers"] = ["test_GP", "test_interp"]
+
+                readers.check_inputs(INPUTS)
+                main(INPUTS)
