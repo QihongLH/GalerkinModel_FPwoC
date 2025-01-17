@@ -144,6 +144,9 @@ def main(INPUTS):
     #%% V. ERROR COMPUTATION
 
     if flag_test_res == 'TR':
+        test_GP['X_ref'] = np.copy(test_TR['a'])
+        test_interp['X_ref'] = np.copy(test_TR['a'])
+
         # MSE spatial error of fields wrt LOR, normalized with variance of fluctuations
         test_GP['MSE_uv'] = metrics_fields.get_MSE(PODr['Phi'] @ test_TR['a'].T, test_GP['Ddt'], grid['B'],
                                                    stats['std_u'] ** 2 + stats['std_v'] ** 2, 'S')
@@ -178,11 +181,13 @@ def main(INPUTS):
 
         # Accuracy fitting of Galerkin system
         if flag_acceleration:
-            GPcoef['R2d_da_TR'] = metrics_modes.get_fit_galerkin_acc(test_TR['a'], test_TR['da'], GPcoef['Chi'])
+            GPcoef['R2d_da_TR'], GPcoef['da_TR'] = metrics_modes.get_fit_galerkin_acc(test_TR['a'], test_TR['da'], GPcoef['Chi'])
+            GPcoef['da_TR_ref'] = np.copy(test_TR['da'])
 
     # Accuracy fitting of Galerkin system
     if flag_acceleration:
-        GPcoef['R2d_da_NTR'] = metrics_modes.get_fit_galerkin_acc(test_NTR['a'], test_NTR['da'], GPcoef['Chi'])
+        GPcoef['R2d_da_NTR'], GPcoef['da_NTR'] = metrics_modes.get_fit_galerkin_acc(test_NTR['a'], test_NTR['da'], GPcoef['Chi'])
+        GPcoef['da_NTR_ref'] = np.copy(test_NTR['da'])
 
     # Number of active terms in Galerkin system
     if flag_integration == 'matrix' and flag_sparsify:

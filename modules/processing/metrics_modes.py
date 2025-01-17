@@ -57,7 +57,7 @@ def get_fit_galerkin_acc(a, da, Chi):
     # Retrieve R2 determination coefficient for derivatives
     R2d = get_fom_modes(da, da_GP, 'R2d')
 
-    return R2d
+    return R2d, da_GP
 
 def get_active_terms(Chi):
     """
