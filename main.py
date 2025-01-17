@@ -46,7 +46,12 @@ def main(INPUTS):
     logger_name = "logger_ts_" + str(ts_test) + ".log"
 
     #%% I. DATA PREPARATION
-    logger.add(logger_name)
+    log_id = logger.add(logger_name)
+
+    logger.debug("Read inputs...")
+    for i, j in zip(INPUTS.keys(), INPUTS.items()):
+        logger.info(i + ":" + str(j[1]))
+
     logger.info("I. DATA PREPARATION")
     # Read grid
     grid = readers.read_h5(path_grid)
@@ -207,7 +212,7 @@ def main(INPUTS):
         logger.debug("Saved " + save_str + "...")
 
     #%% MOVE LOGGER TO RESULTS
-    logger.stop()
+    logger.remove(log_id)
     subdir_path = os.path.join(r'results', flag_flow + '_Re' + str(Re))
     subsubdir_path = os.path.join(subdir_path, flag_truncation + '_' + str(truncation_value) + '_' + 'pressure' + '_' + flag_pressure)
     os.rename(logger_name, os.path.join(subsubdir_path, logger_name))
@@ -221,10 +226,6 @@ if __name__ == '__main__':
 
     with open("INPUTS.json") as json_file:
         INPUTS = json.load(json_file)
-
-    logger.debug("Read inputs...")
-    for i,j in zip(INPUTS.keys(), INPUTS.items()):
-        logger.info(i + ":" + str(j[1]))
 
     readers.check_inputs(INPUTS)
     main(INPUTS)
