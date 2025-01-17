@@ -203,7 +203,7 @@ def main(INPUTS):
 
     #%% MOVE LOGGER TO RESULTS
     logger.stop()
-    subdir_path = os.path.join(r'.\results', flag_flow + '_Re' + str(Re))
+    subdir_path = os.path.join(r'results', flag_flow + '_Re' + str(Re))
     subsubdir_path = os.path.join(subdir_path, flag_truncation + '_' + str(truncation_value) + '_' + 'pressure' + '_' + flag_pressure)
     os.rename(logger_name, os.path.join(subsubdir_path, logger_name))
 

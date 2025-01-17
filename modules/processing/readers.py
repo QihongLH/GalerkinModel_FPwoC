@@ -46,7 +46,7 @@ def save_results(result, flag_save, flag_flow, Re, value_truncation, flag_pressu
     :param ts_test: normalized separation time for testing set
     """
 
-    dir = r'.\results'
+    dir = r'results'
     if not os.path.exists(dir):
         os.makedirs(dir)
 
@@ -84,7 +84,7 @@ def load_results(flag_load, flag_flow, Re, value_truncation, flag_pressure, flag
     :return result: dictionary of results
     """
 
-    dir = r'.\results'
+    dir = r'results'
 
     subdir = flag_flow + '_Re' + str(Re)
     subdir_path = os.path.join(dir, subdir)

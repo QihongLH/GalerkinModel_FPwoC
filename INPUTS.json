@@ -1,7 +1,7 @@
 {
-	"path_grid"        : ".\\data\\FP_grid.h5",
-	"path_train"       : ".\\data\\FP_14k_24k.h5",
-	"path_test"        : ".\\data\\FP_10k_13k.h5",
+	"path_grid"        : "./data/FP_grid.h5",
+	"path_train"       : "./data/FP_14k_24k.h5",
+	"path_test"        : "./data/FP_10k_13k.h5",
 
 	"Re"               : 130,
 	"truncation_value" : 0.7,
