@@ -80,7 +80,7 @@ def errort2subsampling(error_t, ts, Dt):
     """
 
     # Number of snapshots in integration window
-    N = int(ts // Dt) + 1
+    N = int(ts / Dt) + 1
 
     error_fom = np.zeros((N))
     for i in range(N):
@@ -116,7 +116,7 @@ def get_cos_similarity(Dtrue, D, B):
     X = D[i_nonmask, :][0,:,:]
 
     # Cosine similarity
-    Sc = np.sum(np.multiply(Xtrue, X), axis=0) / np.linalg.norm(Xtrue, axis=0) ** 2
+    Sc = np.sum(np.multiply(Xtrue, X), axis=0) / np.linalg.norm(X, axis=0) / np.linalg.norm(Xtrue, axis=0)
 
     return Sc
 
